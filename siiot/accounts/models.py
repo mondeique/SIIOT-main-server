@@ -42,7 +42,7 @@ class User(AbstractUser):
     nickname = models.CharField(max_length=30, unique=True, null=True, verbose_name='nickname')
     phone = models.CharField(max_length=19, unique=True, null=True, help_text='숫자만 입력해주세요')
     USERNAME_FIELD = 'phone'
-    REQUIRED_FIELDS = ['nickname', 'phone']
+    REQUIRED_FIELDS = ['nickname']
 
     objects = UserManager()
     is_active = models.BooleanField(default=True)
