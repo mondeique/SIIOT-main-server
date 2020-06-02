@@ -22,10 +22,14 @@ from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework.permissions import AllowAny
 
+from manage.sites import staff_panel, superadmin_panel
 
 urlpatterns = [
 
     # api
+    # path('grappelli/', include('grappelli.urls')), # grappelli URLS
+    path('superadmin/', superadmin_panel.urls),
+    path('staff/', staff_panel.urls),
     path('admin/', admin.site.urls),
     # path('api/', include('api.urls')),
     # path('api/chat/', include('chat.urls')),

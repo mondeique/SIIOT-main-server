@@ -42,10 +42,6 @@ DEFAULT_FILE_STORAGE = 'siiot.storage.CustomS3Boto3Storage'
 STATIC_ROOT = "https://%s/static/" % AWS_S3_CUSTOM_DOMAIN
 MEDIA_ROOT = "https://%s/media/" % AWS_S3_CUSTOM_DOMAIN
 
-STATICFILES_DIRS = (
-    os.path.join(BASE_DIR, "landing", "static"),
-)
-
 
 # CORS
 CORS_ALLOW_CREDENTIALS = True

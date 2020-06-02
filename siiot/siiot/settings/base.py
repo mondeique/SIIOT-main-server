@@ -21,9 +21,9 @@ BASE_DIR = os.path.dirname(PROJECT_DIR)
 # Application definition
 
 INSTALLED_APPS = [
-    # 'channels',
-    # 'channels',
-
+    # Default Django apps
+    # third party admin before admin
+    # 'grappelli',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.sites',
@@ -37,6 +37,7 @@ INSTALLED_APPS = [
 SECONDS_APPS = [
     # 'payment',
     'accounts',
+    'manage'
     # 'api',
     # 'notice',
     # 'landing',
@@ -74,6 +75,7 @@ THIRD_APPS = [
 
     # django-imagekit
     'imagekit',
+    'ajax_select'
 ]
 
 INSTALLED_APPS += SECONDS_APPS + THIRD_APPS
@@ -169,10 +171,47 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 51
 }
 
-ACCOUNT_USER_MODEL_USERNAME_FIELD = None
-ACCOUNT_EMAIL_REQUIRED = False
-ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_AUTHENTICATION_METHOD = 'phone'
+
+AWS_S3_HOST = 's3.ap-northeast-2.amazonaws.com'
+STATIC_LOCATION = 'static'
+STATIC_URL = "https://%s/%s/" % (AWS_S3_HOST, STATIC_LOCATION)
+# See: https://docs.djangoproject.com/en/dev/ref/contrib/staticfiles/#staticfiles-finders
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+    # 'djangobower.finders.BowerFinder',
+]
+
+########## WPADMIN SETTING
+# http://django-wp-admin.readthedocs.org/en/master/configuration.html#creating-custom-menus
+
+# WPADMIN = {
+#     'superadmin': {
+#         'admin_site': 'manage.sites.superadmin_panel',
+#         'title': 'Siiot Superadmin',
+#         'menu': {
+#             'top': 'manage.menus.AdminTopMenu',
+#             'left': 'manage.menus.AdminLeftMenu',
+#         },
+#         'dashboard': {
+#             'breadcrumbs': True,
+#         },
+#         'custom_style': STATIC_URL + 'wpadmin/css/themes/sunrise.css',
+#     },
+#     'staff': {
+#         'admin_site': 'manage.sites.staff_panel',
+#         'title': 'Siiot Staff',
+#         'menu': {
+#             'top': 'manage.menus.StaffTopMenu',
+#             'left': 'manage.menus.StaffLeftMenu',
+#         },
+#         'dashboard': {
+#             'breadcrumbs': True,
+#         },
+#         'custom_style': STATIC_URL + 'wpadmin/css/themes/ocean.css',
+#     }
+# }
+# ########## END WPADMIN SETTING
 
 
 ########## CKEDITOR CONFIGURATION
