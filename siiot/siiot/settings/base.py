@@ -37,7 +37,7 @@ INSTALLED_APPS = [
 SECONDS_APPS = [
     # 'payment',
     'accounts',
-    'manage'
+    'cunsom_manage'
     # 'api',
     # 'notice',
     # 'landing',
@@ -181,37 +181,6 @@ STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
     # 'djangobower.finders.BowerFinder',
 ]
-
-########## WPADMIN SETTING
-# http://django-wp-admin.readthedocs.org/en/master/configuration.html#creating-custom-menus
-
-# WPADMIN = {
-#     'superadmin': {
-#         'admin_site': 'manage.sites.superadmin_panel',
-#         'title': 'Siiot Superadmin',
-#         'menu': {
-#             'top': 'manage.menus.AdminTopMenu',
-#             'left': 'manage.menus.AdminLeftMenu',
-#         },
-#         'dashboard': {
-#             'breadcrumbs': True,
-#         },
-#         'custom_style': STATIC_URL + 'wpadmin/css/themes/sunrise.css',
-#     },
-#     'staff': {
-#         'admin_site': 'manage.sites.staff_panel',
-#         'title': 'Siiot Staff',
-#         'menu': {
-#             'top': 'manage.menus.StaffTopMenu',
-#             'left': 'manage.menus.StaffLeftMenu',
-#         },
-#         'dashboard': {
-#             'breadcrumbs': True,
-#         },
-#         'custom_style': STATIC_URL + 'wpadmin/css/themes/ocean.css',
-#     }
-# }
-# ########## END WPADMIN SETTING
 
 
 ########## CKEDITOR CONFIGURATION
