@@ -10,20 +10,61 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
-from rest_framework import viewsets
+from rest_framework import viewsets, mixins
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 # Create your views here.
 from accounts.models import User, PhoneConfirm
-from accounts.serializers import LoginSerializer
+from accounts.serializers import LoginSerializer, SignupSerializer
 from accounts.sms.signature import simple_send
 from accounts.sms.utils import SMSManager
+from accounts.utils import create_token
 
 
-class AccountViewSet(viewsets.GenericViewSet):
+class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
     permission_classes = (AllowAny, )
-    serializer_class = LoginSerializer
+    queryset = User.objects.filter(is_active=True)
     token_model = Token
+
+    def get_serializer_class(self):
+        if self.action == 'signup':
+            serializer = SignupSerializer
+        elif self.action == 'login':
+            serializer = LoginSerializer
+        elif self.action == 'reset_password':
+            serializer = None
+        else:
+            serializer = super(AccountViewSet, self).get_serializer_class()
+        return serializer
+
+    @action(methods=['post'], detail=False)
+    def signup(self, request, *args, **kwargs):
+        data = request.data.copy()
+
+        # check is confirmed (temp key로서 외부의 post 막음)
+        temp_key = data.get('temp_key')
+        if not temp_key:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        temp_key = data.pop('temp_key')
+        phone_confirm = PhoneConfirm.objects.get(temp_key=temp_key)
+        if not phone_confirm.is_confirmed:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+        serializer = self.get_serializer(data=data)
+
+        if not serializer.is_valid():
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        user = serializer.save()
+
+        # if user set nickname
+        nickname = data.get('nickname')
+        if nickname:
+            user.nickname = nickname
+            user.save()
+
+        token = create_token(self.token_model, user)
+
+        return Response({'token': token.key}, status=status.HTTP_201_CREATED)
 
 
 class SignupSMSViewSet(viewsets.GenericViewSet):
@@ -116,4 +157,4 @@ class SignupSMSViewSet(viewsets.GenericViewSet):
         obj.is_confirmed = True
         obj.save()
 
-        return Response(status=status.HTTP_200_OK)
+        return Response({'phone': obj.phone, 'temp_key': obj.temp_key}, status=status.HTTP_200_OK)

@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.db.models import Avg
 from rest_framework import serializers, exceptions
@@ -11,30 +13,30 @@ from django.utils import timezone
 class SignupSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ("password", "nickname")
+        fields = ("phone", "password")
 
     def validate(self, attrs):
         phone = attrs.get('phone')
         # Did we get back an active user?
-        if User.objects.filter(phone=phone):
-            if not user.is_active:
-                msg = _('User account is disabled.')
-                raise exceptions.ValidationError(msg)
-        else:
-            msg = _('Unable to log in with provided credentials.')
-            raise exceptions.ValidationError(msg)
+        if User.objects.filter(phone=phone, is_banned=True):
+            msg = _('User is banned.')
+            raise exceptions.ValidationError(msg) # banned user
+        elif User.objects.filter(phone=phone, is_active=True):
+            msg = _('User is already exists.')
+            raise exceptions.ValidationError(msg) # already exists
 
-        attrs['user'] = user
         return attrs
 
     def create(self, validated_data):
+        uid = uuid.uuid4()
         user = User.objects.create(
-            nickname=validated_data['nickname'],
-            phone=validated_data['phone']
+            phone=validated_data['phone'],
         )
         user.set_password(validated_data['password'])
+        user.uid = uuid.uuid4()
         user.save()
-
+        # 유저 생성될 때 profile instance 생성.
+        Profile.objects.get_or_create(user=user)
         return user
 
     def update(self, instance, validated_data):
@@ -45,8 +47,6 @@ class SignupSerializer(serializers.ModelSerializer):
         if validated_data.get('password'):
             instance.set_password(validated_data['password'])
         instance.save()
-        # 유저 생성될 때 profile instance 생성.
-        # Profile.objects.get_or_create(user=instance)
         return instance
 
 

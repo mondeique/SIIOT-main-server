@@ -4,8 +4,8 @@ from django.contrib.auth.models import Permission
 from django.utils.translation import ugettext_lazy as _
 from django import forms
 
-from manage.sites import superadmin_panel, staff_panel
-from manage.tools import superadmin_register
+from cunsom_manage.sites import superadmin_panel, staff_panel
+from cunsom_manage.tools import superadmin_register
 from .models import User, PhoneConfirm, Profile
 
 
@@ -29,7 +29,7 @@ class UserSuperadmin(admin.ModelAdmin):
     actions = ['apply_staff_permission']
 
     def apply_staff_permission(self, request, queryset):
-        park = User.objects.get(pk=1)
+        park = User.objects.get(pk=2)
         permission_object_ids = park.user_permissions.all().values_list('id', flat=True)
         rows_updated = 0
         for user in queryset.exclude(id=park.id):
@@ -48,7 +48,7 @@ superadmin_register(PhoneConfirm, list_display=['phone', 'certification_number',
 # staff
 
 class UserStaffadmin(admin.ModelAdmin):
-    list_display = ['id', 'email', 'nickname', 'is_active']
+    list_display = ['id', 'phone', 'email', 'nickname', 'is_active']
     search_fields = ['email', 'phone']
 
 

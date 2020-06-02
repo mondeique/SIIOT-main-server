@@ -1,8 +1,8 @@
 from django.conf import settings
-from django.contrib.auth.base_user import BaseUserManager
+from django.contrib.auth.base_user import BaseUserManager, AbstractBaseUser
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-
+from django.contrib.auth.models import PermissionsMixin
 # Create your models here.
 
 
@@ -13,20 +13,20 @@ def img_directory_path_profile(instance, filename):
 class UserManager(BaseUserManager):
     use_in_migrations = True
 
-    def _create_user(self, password, nickname, phone, **kwargs):
+    def _create_user(self, password, phone, **kwargs):
         if not phone:
             raise ValueError('핸드폰 번호를 입력해주세요')
-        user = self.model(nickname=nickname, phone=phone, **kwargs)
+        user = self.model(phone=phone, **kwargs)
         user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_user(self, nickname, phone, password=None, **kwargs):
+    def create_user(self, phone, password=None, **kwargs):
         kwargs.setdefault('is_staff', False)
         kwargs.setdefault('is_superuser', False)
-        return self._create_user(password, nickname, phone, **kwargs)
+        return self._create_user(password, phone, **kwargs)
 
-    def create_superuser(self, password, nickname, phone, **kwargs):
+    def create_superuser(self, password, phone, **kwargs):
         kwargs.setdefault('is_staff', True)
         kwargs.setdefault('is_superuser', True)
 
@@ -34,18 +34,17 @@ class UserManager(BaseUserManager):
             raise ValueError('superuser must have is_staff=True')
         if kwargs.get('is_superuser') is not True:
             raise ValueError('superuser must have is_superuser=True')
-        return self._create_user(password, nickname, phone, **kwargs)
+        return self._create_user(password, phone, **kwargs)
 
 
-class User(AbstractUser):
+class User(AbstractBaseUser, PermissionsMixin):
     # username = None
-    nickname = models.CharField(max_length=30, unique=True, null=True, verbose_name='nickname')
+    nickname = models.CharField(max_length=30, unique=True, null=True, blank=True, verbose_name='nickname')
     phone = models.CharField(max_length=20, blank=True, null=True,
                              help_text="탈퇴 후 재 가입 시 같은 번호로 사용할 수 있으므로 unique 설정하지 않음")
-    uid = models.UUIDField(default=None, blank=True, null=True, unique=True,
-                           help_text="phone 대신 USERNAME_FIELD를 대체할 field입니다.")
+    uid = models.UUIDField(unique=True, null=True, blank=True, help_text="phone 대신 USERNAME_FIELD를 대체할 field입니다.")
     USERNAME_FIELD = 'uid'
-    REQUIRED_FIELDS = ['nickname', 'phone']
+    REQUIRED_FIELDS = ['phone']
 
     objects = UserManager()
     is_active = models.BooleanField(default=True, help_text="탈퇴/밴 시 is_active = False")
