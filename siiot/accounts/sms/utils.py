@@ -1,6 +1,5 @@
 import string
 import random
-import requests
 import json
 from accounts.models import PhoneConfirm
 from accounts.sms.signature import time_stamp, make_signature

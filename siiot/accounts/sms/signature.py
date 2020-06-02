@@ -26,9 +26,9 @@ def make_signature():
     return string_base64
 
 
-def send():
+def simple_send(certification_number):
     """
-    sample code
+    simple sms send code
     """
     url = "https://sens.apigw.ntruss.com"
     uri = "/sms/v2/services/" + load_credential("serviceId") + "/messages"
@@ -36,7 +36,7 @@ def send():
 
     signature = make_signature()
 
-    message = "test"
+    message = "사용자의 인증 코드는 [SiiOt] {}입니다.".format(certification_number)
 
     headers = {
         'Content-Type': "application/json; charset=UTF-8",
@@ -56,5 +56,7 @@ def send():
     body = json.dumps(body)
 
     response = requests.post(api_url, headers=headers, data=body)
-    print(response)
-    response.raise_for_status()
+    if response.json()['status'] == '202':
+        return True
+    else:
+        return False
