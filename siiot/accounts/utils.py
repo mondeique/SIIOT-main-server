@@ -65,3 +65,7 @@ class JusoMaster:
             'resultType': 'json'
         })
         return (res.json()['results']['common'], res.json()['results']['juso'])
+
+
+def set_random_nickname():
+    return 'user'+''.join(random.choices(string.digits, k=6))

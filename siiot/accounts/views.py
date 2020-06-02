@@ -15,10 +15,10 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 
 # Create your views here.
 from accounts.models import User, PhoneConfirm
-from accounts.serializers import LoginSerializer, SignupSerializer
+from accounts.serializers import LoginSerializer, SignupSerializer, CredentialException
 from accounts.sms.signature import simple_send
 from accounts.sms.utils import SMSManager
-from accounts.utils import create_token
+from accounts.utils import create_token, set_random_nickname
 
 
 class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
@@ -39,6 +39,15 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
     @action(methods=['post'], detail=False)
     def signup(self, request, *args, **kwargs):
+        """
+        회원가입시 사용하는 api 입니다.
+        sms 인증이 완료될 때 return 된 phone, temp_key에 + password + nickname(optional) 을 입력받습니다.
+        temp_key를 활용하여 외부 api로 signup을 방지하였습니다.
+        :return:
+        400 : bad request
+        401 : temp_key가 유효하지 않을 때
+        201 : created
+        """
         data = request.data.copy()
 
         # check is confirmed (temp key로서 외부의 post 막음)
@@ -50,10 +59,9 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         if not phone_confirm.is_confirmed:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
+        # user 생성
         serializer = self.get_serializer(data=data)
-
-        if not serializer.is_valid():
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
         # if user set nickname
@@ -61,10 +69,53 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         if nickname:
             user.nickname = nickname
             user.save()
+        else: # 건너뛰기 or 중간이탈 시 random nickname # TODO : random nickname 기획
+            random_nickname = set_random_nickname()
+            user.nickname = random_nickname
+            user.save()
 
         token = create_token(self.token_model, user)
 
         return Response({'token': token.key}, status=status.HTTP_201_CREATED)
+
+    def process_login(self):
+        django_login(self.request, self.user, backend='django.contrib.auth.backends.ModelBackend')
+
+    def _login(self):
+        user = self.serializer.validated_data['user']
+        setattr(user, 'backend', 'django.contrib.auth.backends.ModelBackend')
+        django_login(self.request, user)
+        # loginlog_on_login(request=self.request, user=user)
+
+    @action(methods=['post'], detail=False)
+    def login(self, request, *args, **kwargs):
+        print(self.serializer_class)
+        try:
+            self.serializer = self.get_serializer(data=request.data)
+            self.serializer.is_valid(raise_exception=True)
+            self._login()
+            token = self.serializer.validated_data['token']
+        except CredentialException:
+            return Response({"non_field_errors": ['Unable to log in with provided credentials.']},
+                            status=status.HTTP_400_BAD_REQUEST)
+        return Response({'token': token}, status=status.HTTP_200_OK)
+
+    @action(methods=['post'], detail=False)
+    def logout(self, request):
+        """
+        :return: code, status
+        """
+        try:
+            request.user.auth_token.delete()
+        except (AttributeError, ObjectDoesNotExist):
+            key = request.headers['Authorization']
+            if key:
+                token = Token.objects.get(key=key.split(' ')[1])
+                token.delete()
+        if getattr(settings, 'REST_SESSION_LOGIN', True):
+            django_logout(request)
+
+        return Response(status=status.HTTP_200_OK)
 
 
 class SignupSMSViewSet(viewsets.GenericViewSet):
@@ -76,14 +127,14 @@ class SignupSMSViewSet(viewsets.GenericViewSet):
         """
         회원가입 시 인증번호를 받는 api 입니다.
         body 에 phone 을 담아 보내주기만 하면 됩니다.
-        :return
+        :return : temp_key (이를 활용하여 재발급에 사용)
         400 : bad request -> phone 을 보내지 않았을 때
         401 : 강제 밴 처리 당한 유저
         409 : 이미 가입 내역이 존재
         500 : (1) client에서 data 양식에 맞지 않게 요청시, (2) send error
         """
         data = request.data.copy()
-        phone = data['phone']
+        phone = data.get('phone')
 
         if not phone:
             return Response(status=status.HTTP_400_BAD_REQUEST)
@@ -107,13 +158,13 @@ class SignupSMSViewSet(viewsets.GenericViewSet):
         """
         인증번호 재발급에 사용하는 api 입니다.
         body 에 temp_key를 담아 보내주기만 하면 됩니다.
-        :return:
+        :return
         400 : bad request -> temp_key 에 데이터가 존재하지 않을 때
         404 : not found -> 잘못된 temp_key를 보냈을 때
         500 :  (1) client에서 data 양식에 맞지 않게 요청시, (2) send error
         """
         data = request.data.copy()
-        temp_key = data['temp_key']
+        temp_key = data.get('temp_key')
 
         if not temp_key:
             return Response(status=status.HTTP_400_BAD_REQUEST)
@@ -136,13 +187,13 @@ class SignupSMSViewSet(viewsets.GenericViewSet):
         인증번호를 확인하는 api 입니다.
         body 에 phone 과 key 를 담아 보내야 합니다.
         return 400 시 재전송이 아닌, 이전페이지(핸드폰 번호 입력)로 이동하여 새로운 코드를 발급해야 합니다.
-        :return
+        :return : phone, temp_key
         400 : bad request -> (1) phone 또는 key 가 없을 때, (2) 해당 key가 이미 인증에 사용된 key 일 때
         404 : not found -> key 가 맞지 않을 때
         """
         data = request.data.copy()
-        phone = data['phone']
-        key = str(data['key'])  # certification number
+        phone = data.get('phone')
+        key = str(data.get('key'))  # certification number
 
         if not phone or not key:
             return Response(status=status.HTTP_400_BAD_REQUEST)

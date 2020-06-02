@@ -64,40 +64,34 @@ class PhoneConfirmSerializer(serializers.ModelSerializer):
         return False
 
 
+class CredentialException(Exception):
+    pass
+
+
 class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField(required=False, allow_blank=True)
+    phone = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField(style={'input_type': 'password'})
 
-    def authenticate(self, **kwargs):
-        return authenticate(self.context['request'], **kwargs)
-
-    def _validate_email(self, email, password):
-        user = None
-        if email and password:
-            user = self.authenticate(email=email, password=password)
-        else:
-            msg = _('Must include "email" and "password".')
-            raise exceptions.ValidationError(msg)
-
-        return user
-
     def validate(self, attrs):
-        email = attrs.get('email')
+        from django.contrib.auth.hashers import check_password
+        super(LoginSerializer, self).validate(attrs)
+        phone = attrs.get('phone')
         password = attrs.get('password')
 
-        user = self._validate_email(email, password)
+        if phone is None:
+            return
 
-        # Did we get back an active user?
-        if user:
-            if not user.is_active:
-                msg = _('User account is disabled.')
-                raise exceptions.ValidationError(msg)
-        else:
-            msg = _('Unable to log in with provided credentials.')
-            raise exceptions.ValidationError(msg)
-
+        user = User.objects.filter(phone=phone, is_active=True).last()
         attrs['user'] = user
-        return attrs
+
+        if user:
+            valid_password = check_password(password, user.password)
+            if valid_password:
+                token, _ = Token.objects.get_or_create(user=user)
+                attrs['token'] = token.key
+                return attrs
+            raise CredentialException("invalid Password")
+        raise CredentialException("invalid Email (No User)")
 
 
 class TokenSerializer(serializers.ModelSerializer):
