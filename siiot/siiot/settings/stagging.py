@@ -1,5 +1,4 @@
 from .base import *
-
 SETTING_STAG_DIC = load_credential("stagging")
 SECRET_KEY = SETTING_STAG_DIC['SECRET_KEY']
 
