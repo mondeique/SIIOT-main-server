@@ -42,7 +42,7 @@ class SMSManager():
             phone=phone,
             certification_number=self.certification_number,
             temp_key=self.temp_key,
-            kind=kind
+            kinds=kind
         )
         return phone_confirm
 

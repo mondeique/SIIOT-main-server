@@ -1,5 +1,7 @@
 from rest_framework.routers import DefaultRouter, Route, DynamicRoute
 
+from accounts.views import SignupSMSViewSet
+
 
 class CustomRouter(DefaultRouter):
     routes = [
@@ -47,3 +49,4 @@ class CustomRouter(DefaultRouter):
 
 
 router = CustomRouter()
+router.register('signup_sms', SignupSMSViewSet, basename='signup_sms')

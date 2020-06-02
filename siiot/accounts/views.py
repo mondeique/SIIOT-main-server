@@ -33,7 +33,7 @@ class SignupSMSViewSet(viewsets.GenericViewSet):
     permission_classes = (AllowAny, )
     serializer_class = None
 
-    @action(methods='post', detail=False)
+    @action(methods=['post'], detail=False)
     def send(self, request, *args, **kwargs):
         """
         회원가입 시 인증번호를 받는 api 입니다.
@@ -60,11 +60,11 @@ class SignupSMSViewSet(viewsets.GenericViewSet):
         sms_manager.create_instance(phone=phone, kind=PhoneConfirm.SIGN_UP)
 
         if not sms_manager.send_sms(phone=phone):
-            return Response(status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response({'temp_key': sms_manager.temp_key}, status=status.HTTP_200_OK)
 
-    @action(methods='post', detail=False)
+    @action(methods=['post'], detail=False)
     def resend(self, request, *args, **kwargs):
         """
         인증번호 재발급에 사용하는 api 입니다.
@@ -91,6 +91,7 @@ class SignupSMSViewSet(viewsets.GenericViewSet):
 
         return Response(status=status.HTTP_200_OK)
 
+    @action(methods=['post'], detail=False)
     def confirm(self, request, *args, **kwargs):
         """
         인증번호를 확인하는 api 입니다.
@@ -115,13 +116,3 @@ class SignupSMSViewSet(viewsets.GenericViewSet):
             return Response(status=status.HTTP_404_NOT_FOUND)
 
         return Response(status=status.HTTP_200_OK)
-
-
-
-
-
-
-
-
-
-

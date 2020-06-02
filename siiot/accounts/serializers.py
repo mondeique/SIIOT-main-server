@@ -166,18 +166,6 @@ class CommonSerializer(serializers.Serializer):
     currentPage = serializers.IntegerField()
 
 
-class SearchAddrSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Address
-        fields = ['zipNo', 'Addr']
-
-
-class AddressSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Address
-        fields = ['id','phone','name','zipNo', 'Addr','detailAddr', 'recent']
-
 
 class KakaoSerializer(serializers.Serializer):
     id = serializers.CharField()

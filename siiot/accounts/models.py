@@ -45,7 +45,7 @@ class User(AbstractUser):
     uid = models.UUIDField(default=None, blank=True, null=True, unique=True,
                            help_text="phone 대신 USERNAME_FIELD를 대체할 field입니다.")
     USERNAME_FIELD = 'uid'
-    REQUIRED_FIELDS = ['nickname']
+    REQUIRED_FIELDS = ['nickname', 'phone']
 
     objects = UserManager()
     is_active = models.BooleanField(default=True, help_text="탈퇴/밴 시 is_active = False")
