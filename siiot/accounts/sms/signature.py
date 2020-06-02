@@ -26,7 +26,7 @@ def make_signature():
     return string_base64
 
 
-def simple_send(certification_number):
+def simple_send(certification_number, phone):
     """
     simple sms send code
     """
@@ -40,7 +40,7 @@ def simple_send(certification_number):
 
     headers = {
         'Content-Type': "application/json; charset=UTF-8",
-        'x-ncp-apigw-timestamp': str(int(time.time() * 1000)),
+        'x-ncp-apigw-timestamp': time_stamp(),
         'x-ncp-iam-access-key': load_credential('access_key'),
         'x-ncp-apigw-signature-v2': signature
     }
@@ -50,13 +50,13 @@ def simple_send(certification_number):
         "contentType": "COMM",
         "from": load_credential("_from"),
         "content": message,
-        "messages": [{"to": ''}]
+        "messages": [{"to": '{}'.format(phone)}]
     }
 
     body = json.dumps(body)
 
     response = requests.post(api_url, headers=headers, data=body)
-    if response.json()['status'] == '202':
+    if response.status_code == 202:
         return True
     else:
         return False

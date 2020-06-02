@@ -29,12 +29,10 @@ class SMSManager():
         self.temp_key = uuid.uuid4()
         self.body = {
             "type": "SMS",
-            "countryCode": "82",
+            "contentType": "COMM",
             "from": self._from,
-            "messages": {
-                "to": "",
-            },
-            "content": ""  # 기본 메시지 내용
+            "content": "",  # 기본 메시지 내용
+            "messages": [{"to": ""}],
         }
 
     def create_instance(self, phone, kind):
@@ -57,9 +55,9 @@ class SMSManager():
         self.body['content'] = "사용자의 인증 코드는 [SiiOt] {}입니다.".format(self.certification_number)
 
     def send_sms(self, phone):
-        self.body['messages']['to'] = phone
-        request = requests.post(self.url, headers=self.headers, data=json.dumps(self.body, ensure_ascii=False).encode('utf-8'))
-        if request.json()['status'] == '202':
+        self.body['messages'][0]['to'] = phone
+        request = requests.post(self.url, headers=self.headers, data=json.dumps(self.body))
+        if request.status_code == 202:
             return True
         else:
             return False

@@ -5,9 +5,6 @@ from django.contrib.auth import (
 )
 from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
-from django.http import Http404
-from django.shortcuts import render
-from django.utils.translation import ugettext_lazy as _
 
 from rest_framework.response import Response
 from rest_framework import status
@@ -85,8 +82,9 @@ class SignupSMSViewSet(viewsets.GenericViewSet):
 
         obj = PhoneConfirm.objects.filter(temp_key=temp_key).last()
         certification_number = obj.certification_number
+        phone = obj.phone
 
-        if not simple_send(certification_number):
+        if not simple_send(certification_number, phone):
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response(status=status.HTTP_200_OK)
@@ -105,7 +103,7 @@ class SignupSMSViewSet(viewsets.GenericViewSet):
         phone = data['phone']
         key = str(data['key'])  # certification number
 
-        if not phone or key:
+        if not phone or not key:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
         obj = PhoneConfirm.objects.filter(phone=phone).last()
@@ -114,5 +112,8 @@ class SignupSMSViewSet(viewsets.GenericViewSet):
 
         if obj.certification_number != key:
             return Response(status=status.HTTP_404_NOT_FOUND)
+
+        obj.is_confirmed = True
+        obj.save()
 
         return Response(status=status.HTTP_200_OK)
