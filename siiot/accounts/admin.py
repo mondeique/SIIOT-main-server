@@ -4,6 +4,7 @@ from django.contrib.auth.models import Permission
 from django.utils.translation import ugettext_lazy as _
 from django import forms
 
+from accounts.nickname.models import FirstNickName, LastNickName
 from cunsom_manage.sites import superadmin_panel, staff_panel
 from cunsom_manage.tools import superadmin_register
 from .models import User, PhoneConfirm, Profile
@@ -60,6 +61,16 @@ class ProfileAdmin(admin.ModelAdmin):
     list_display = ['user', 'profile_img']
 
 
+class FirstNicknameAdmin(admin.ModelAdmin):
+    list_display = ['first_nickname', 'is_active', 'created_at']
+
+
+class LastNicknameAdmin(admin.ModelAdmin):
+    list_display = ['last_nickname', 'is_active', 'created_at']
+
+
 staff_panel.register(User, UserStaffadmin)
 staff_panel.register(PhoneConfirm, PhoneConfirmAdmin)
 staff_panel.register(Profile, ProfileAdmin)
+staff_panel.register(FirstNickName, FirstNicknameAdmin)
+staff_panel.register(LastNickName, LastNicknameAdmin)

@@ -50,20 +50,6 @@ class SignupSerializer(serializers.ModelSerializer):
         return instance
 
 
-class PhoneConfirmSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PhoneConfirm
-        fields = '__all__'
-
-    # 세션완료, 30초
-    def timeout(self, instance):
-        if not instance.is_confirmed:
-            if timezone.now().timestamp() - instance.created_at.timestamp() >= 30:
-                instance.delete()
-                return True
-        return False
-
-
 class CredentialException(Exception):
     pass
 
@@ -94,22 +80,16 @@ class LoginSerializer(serializers.Serializer):
         raise CredentialException("invalid Email (No User)")
 
 
+class NicknameSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['nickname']
+
+
 class TokenSerializer(serializers.ModelSerializer):
     class Meta:
         model = Token
         fields = ('key',)
-
-
-class ThumbnailSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Profile
-        fields = ['thumbnail_img']
-
-    def get_thumbnail_img(self, obj):
-        thumbnail_img = obj.thumbnail_img
-        if thumbnail_img:
-            return thumbnail_img.url
-        return "/media/test.png"
 
 
 class UserSerializer(serializers.ModelSerializer):

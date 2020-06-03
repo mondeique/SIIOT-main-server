@@ -1,4 +1,3 @@
-
 from django.contrib.auth import (
     login as django_login,
     logout as django_logout
@@ -15,24 +14,22 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 
 # Create your views here.
 from accounts.models import User, PhoneConfirm
-from accounts.serializers import LoginSerializer, SignupSerializer, CredentialException
+from accounts.serializers import LoginSerializer, SignupSerializer, CredentialException, NicknameSerializer
 from accounts.sms.signature import simple_send
 from accounts.sms.utils import SMSManager
 from accounts.utils import create_token, set_random_nickname
 
 
 class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
-    permission_classes = (AllowAny, )
+    permission_classes = [AllowAny, ]
     queryset = User.objects.filter(is_active=True)
     token_model = Token
 
     def get_serializer_class(self):
-        if self.action == 'signup':
+        if self.action in ['signup', 'reset_pw']:
             serializer = SignupSerializer
         elif self.action == 'login':
             serializer = LoginSerializer
-        elif self.action == 'reset_password':
-            serializer = None
         else:
             serializer = super(AccountViewSet, self).get_serializer_class()
         return serializer
@@ -41,8 +38,9 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
     def signup(self, request, *args, **kwargs):
         """
         회원가입시 사용하는 api 입니다.
-        sms 인증이 완료될 때 return 된 phone, temp_key에 + password + nickname(optional) 을 입력받습니다.
+        sms 인증이 완료될 때 return 된 phone, temp_key에 + password 을 입력받습니다.
         temp_key를 활용하여 외부 api로 signup을 방지하였습니다.
+        nickname의 경우 자동으로 random nickname이 부여되고, 회원가입 이후 nickname을 입력하면 update가 됩니다.
         :return:
         400 : bad request
         401 : temp_key가 유효하지 않을 때
@@ -53,11 +51,11 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         # check is confirmed (temp key로서 외부의 post 막음)
         temp_key = data.get('temp_key')
         if not temp_key:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+            return Response("No temp key", status=status.HTTP_400_BAD_REQUEST)
         temp_key = data.pop('temp_key')
         phone_confirm = PhoneConfirm.objects.get(temp_key=temp_key)
         if not phone_confirm.is_confirmed:
-            return Response(status=status.HTTP_401_UNAUTHORIZED)
+            return Response("Unconfirmed Phone number", status=status.HTTP_401_UNAUTHORIZED)
 
         # user 생성
         serializer = self.get_serializer(data=data)
@@ -65,21 +63,14 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         user = serializer.save()
 
         # if user set nickname
-        nickname = data.get('nickname')
-        if nickname:
-            user.nickname = nickname
-            user.save()
-        else: # 건너뛰기 or 중간이탈 시 random nickname # TODO : random nickname 기획
-            random_nickname = set_random_nickname()
-            user.nickname = random_nickname
-            user.save()
+
+        # default random nickname
+        user.nickname = set_random_nickname()
+        user.save()
 
         token = create_token(self.token_model, user)
 
         return Response({'token': token.key}, status=status.HTTP_201_CREATED)
-
-    def process_login(self):
-        django_login(self.request, self.user, backend='django.contrib.auth.backends.ModelBackend')
 
     def _login(self):
         user = self.serializer.validated_data['user']
@@ -89,7 +80,6 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
     @action(methods=['post'], detail=False)
     def login(self, request, *args, **kwargs):
-        print(self.serializer_class)
         try:
             self.serializer = self.get_serializer(data=request.data)
             self.serializer.is_valid(raise_exception=True)
@@ -117,13 +107,70 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
         return Response(status=status.HTTP_200_OK)
 
+    @action(methods=['post'], detail=False)
+    def reset_pw(self, request, *args, **kwargs):
+        """
+        비밀번호 재설정에 사용하는 api 입니다.
+        sms 인증이 완료될 때 return 된 phone, temp_key에 + password 을 입력받습니다.
+        temp_key를 활용하여 외부 api로 signup을 방지하였습니다.
+        nickname의 경우 자동으로 random nickname이 부여되고, 회원가입 이후 nickname을 입력하면 update가 됩니다.
+        :return:
+        400 : bad request
+        401 : temp_key가 유효하지 않을 때
+        201 : created
+        """
+        data = request.data.copy()
 
-class SignupSMSViewSet(viewsets.GenericViewSet):
-    permission_classes = (AllowAny, )
+        # check is confirmed (temp key로서 외부의 post 막음)
+        temp_key = data.get('temp_key')
+        if not temp_key:
+            return Response("No temp key", status=status.HTTP_400_BAD_REQUEST)
+
+        temp_key = data.pop('temp_key')
+        phone_confirm = PhoneConfirm.objects.get(temp_key=temp_key)
+        if not phone_confirm.is_confirmed:
+            return Response("Unconfirmed phone number", status=status.HTTP_401_UNAUTHORIZED)
+
+        phone = data.pop('phone')
+        user = User.objects.filter(phone=phone, is_active=True)
+
+        if user.count() == 0:
+            return Response("User does not exist", status=status.HTTP_400_BAD_REQUEST)
+
+        user = user.last()
+
+        # password reset(update) 생성
+        serializer = self.get_serializer(user, data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(status=status.HTTP_206_PARTIAL_CONTENT)
+
+
+class NicknameViewSet(viewsets.GenericViewSet, mixins.UpdateModelMixin):
+    permission_classes = [IsAuthenticated, ]
+    serializer_class = NicknameSerializer
+    queryset = User.objects.filter(is_active=True)
+
+    @action(methods=['post'], detail=False)
+    def register(self, request, *args, **kwargs):
+        """
+        User 회원가입시 nickname을 자동 생성 한 이후, NicknameViewSet 을 사용하여 nickname을 update 합니다.
+        My page 에서 닉네임 업데이트시에도 사용합니다.
+        """
+        user = request.user
+        serializer = self.get_serializer(user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(status=status.HTTP_206_PARTIAL_CONTENT)
+
+
+class SMSViewSet(viewsets.GenericViewSet):
+    permission_classes = [AllowAny, ]
     serializer_class = None
 
     @action(methods=['post'], detail=False)
-    def send(self, request, *args, **kwargs):
+    def signup(self, request, *args, **kwargs):
         """
         회원가입 시 인증번호를 받는 api 입니다.
         body 에 phone 을 담아 보내주기만 하면 됩니다.
@@ -137,19 +184,50 @@ class SignupSMSViewSet(viewsets.GenericViewSet):
         phone = data.get('phone')
 
         if not phone:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+            return Response("No phone number", status=status.HTTP_400_BAD_REQUEST)
 
         if User.objects.filter(phone=phone, is_banned=True):
-            return Response(status=status.HTTP_401_UNAUTHORIZED) # banned user
+            return Response("User is banned", status=status.HTTP_401_UNAUTHORIZED) # banned user
         elif User.objects.filter(phone=phone, is_active=True):
-            return Response(status=status.HTTP_409_CONFLICT) # already exists
+            return Response("Phone number already exists", status=status.HTTP_409_CONFLICT) # already exists
 
         sms_manager = SMSManager()
         sms_manager.set_content()
         sms_manager.create_instance(phone=phone, kind=PhoneConfirm.SIGN_UP)
 
         if not sms_manager.send_sms(phone=phone):
-            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response("Failed send sms", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return Response({'temp_key': sms_manager.temp_key}, status=status.HTTP_200_OK)
+
+    @action(methods=['post'], detail=False)
+    def reset_pw(self, request, *args, **kwargs):
+        """
+        비밀번호 재설정시 인증번호를 받는 api 입니다.
+        body 에 phone 을 담아 보내주기만 하면 됩니다.
+        :return : temp_key (이를 활용하여 재발급에 사용)
+        400 : bad request -> phone 을 보내지 않았을 때
+        401 : 강제 밴 처리 당한 유저
+        204 : 가입 내역이 없음
+        500 : (1) client에서 data 양식에 맞지 않게 요청시, (2) send error
+        """
+        data = request.data.copy()
+        phone = data.get('phone')
+
+        if not phone:
+            return Response("No phone number", status=status.HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(phone=phone, is_banned=True):
+            return Response("User is banned", status=status.HTTP_401_UNAUTHORIZED)  # banned user
+        elif not User.objects.filter(phone=phone, is_active=True):
+            return Response("User does not exists", status=status.HTTP_204_NO_CONTENT)  # no user
+
+        sms_manager = SMSManager()
+        sms_manager.set_content()
+        sms_manager.create_instance(phone=phone, kind=PhoneConfirm.RESET_PASSWORD)
+
+        if not sms_manager.send_sms(phone=phone):
+            return Response("Failed send sms", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response({'temp_key': sms_manager.temp_key}, status=status.HTTP_200_OK)
 
@@ -167,17 +245,17 @@ class SignupSMSViewSet(viewsets.GenericViewSet):
         temp_key = data.get('temp_key')
 
         if not temp_key:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+            return Response("No temp key", status=status.HTTP_400_BAD_REQUEST)
 
         if not PhoneConfirm.objects.filter(temp_key=temp_key):
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            return Response("Invalid temp key", status=status.HTTP_404_NOT_FOUND)
 
         obj = PhoneConfirm.objects.filter(temp_key=temp_key).last()
         certification_number = obj.certification_number
         phone = obj.phone
 
         if not simple_send(certification_number, phone):
-            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response("Failed send sms", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response(status=status.HTTP_200_OK)
 
@@ -196,16 +274,17 @@ class SignupSMSViewSet(viewsets.GenericViewSet):
         key = str(data.get('key'))  # certification number
 
         if not phone or not key:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+            return Response("No phone number or No key", status=status.HTTP_400_BAD_REQUEST)
 
         obj = PhoneConfirm.objects.filter(phone=phone).last()
         if obj.is_confirmed:  # already used key
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+            return Response("Invalid key: Already used to confirm", status=status.HTTP_400_BAD_REQUEST)
 
         if obj.certification_number != key:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            return Response("Not match key & server key", status=status.HTTP_404_NOT_FOUND)
 
         obj.is_confirmed = True
         obj.save()
 
         return Response({'phone': obj.phone, 'temp_key': obj.temp_key}, status=status.HTTP_200_OK)
+

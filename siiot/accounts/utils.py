@@ -3,6 +3,8 @@ import random
 import json
 from accounts.models import PhoneConfirm
 from django.db.models import Sum
+
+from accounts.nickname.models import FirstNickName, LastNickName
 from .loader import load_credential
 import requests
 
@@ -68,4 +70,8 @@ class JusoMaster:
 
 
 def set_random_nickname():
-    return 'user'+''.join(random.choices(string.digits, k=6))
+    first_nickname_list = FirstNickName.objects.values_list('first_nickname', flat=True)
+    last_nickname_list = LastNickName.objects.values_list('last_nickname', flat=True)
+    first_nickname = random.choice(first_nickname_list)
+    last_nickname = random.choice(last_nickname_list)
+    return first_nickname + ' ' + last_nickname + '_' + ''.join(random.choices(string.digits, k=6))
