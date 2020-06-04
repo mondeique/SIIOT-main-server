@@ -37,7 +37,13 @@ INSTALLED_APPS = [
 SECONDS_APPS = [
     # 'payment',
     'accounts',
-    'cunsom_manage'
+    'cunsom_manage',
+    'products.category',
+    'products.crawler',
+    'products.shopping_mall',
+    'products.supplymentary',
+    'products',
+
     # 'api',
     # 'notice',
     # 'landing',
