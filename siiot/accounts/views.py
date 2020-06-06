@@ -186,9 +186,9 @@ class SMSViewSet(viewsets.GenericViewSet):
         if not phone:
             return Response("No phone number", status=status.HTTP_400_BAD_REQUEST)
 
-        if User.objects.filter(phone=phone, is_banned=True):
+        if User.objects.filter(phone=phone, is_banned=True).exists():
             return Response("User is banned", status=status.HTTP_401_UNAUTHORIZED) # banned user
-        elif User.objects.filter(phone=phone, is_active=True):
+        elif User.objects.filter(phone=phone, is_active=True).exists():
             return Response("Phone number already exists", status=status.HTTP_409_CONFLICT) # already exists
 
         sms_manager = SMSManager()
@@ -217,9 +217,9 @@ class SMSViewSet(viewsets.GenericViewSet):
         if not phone:
             return Response("No phone number", status=status.HTTP_400_BAD_REQUEST)
 
-        if User.objects.filter(phone=phone, is_banned=True):
+        if User.objects.filter(phone=phone, is_banned=True).exists():
             return Response("User is banned", status=status.HTTP_401_UNAUTHORIZED)  # banned user
-        elif not User.objects.filter(phone=phone, is_active=True):
+        elif not User.objects.filter(phone=phone, is_active=True).exists():
             return Response("User does not exists", status=status.HTTP_204_NO_CONTENT)  # no user
 
         sms_manager = SMSManager()
@@ -247,7 +247,7 @@ class SMSViewSet(viewsets.GenericViewSet):
         if not temp_key:
             return Response("No temp key", status=status.HTTP_400_BAD_REQUEST)
 
-        if not PhoneConfirm.objects.filter(temp_key=temp_key):
+        if not PhoneConfirm.objects.filter(temp_key=temp_key).exists():
             return Response("Invalid temp key", status=status.HTTP_404_NOT_FOUND)
 
         obj = PhoneConfirm.objects.filter(temp_key=temp_key).last()

@@ -1,13 +1,10 @@
 import uuid
 
-from django.conf import settings
 from django.db.models import Avg
 from rest_framework import serializers, exceptions
-from django.contrib.auth import authenticate
-from .models import User, PhoneConfirm, Profile
+from accounts.models import User, Profile
 from rest_framework.authtoken.models import Token
 from django.utils.translation import ugettext_lazy as _
-from django.utils import timezone
 
 
 class SignupSerializer(serializers.ModelSerializer):
