@@ -133,3 +133,14 @@ class ProductImages(models.Model):
     def image_url(self):
         return self.image_key.url
 
+
+class ProductUploadRequest(models.Model):
+
+    product = models.ForeignKey('Product', related_name='upload_requests', on_delete=models.CASCADE)
+    is_done = models.BooleanField(default=False)
+
+    staff = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                              verbose_name='담당자')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)

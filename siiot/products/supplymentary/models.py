@@ -9,6 +9,7 @@ from django.db import models
 from core.fields import S3ImageKeyField
 from io import BytesIO
 
+
 PRECISION = 4
 THRESHOLD = 0.1 ** PRECISION
 CANDIDATES_COUNT = 100
@@ -98,11 +99,15 @@ class SizeCaptureImage(models.Model):
 class PurchasedReceipt(models.Model):
     """
     유저가 구매내역 업로드를 선택했을 때 해당 모델을 사용하여 이미지를 저장합니다.
-    S#ImageKeyField()를 사용할 때, uuid를 미리 저장 해 두고 client에게 전달하는 게 좋을 듯 합니다.
+    S#ImageKeyField()를 사용할 때, uuid를 미리 저장 해 두고 client에게 전달하는 게 좋을 듯 합니다?
     """
     receipt_image_key = S3ImageKeyField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def image_url(self):
+        return self.receipt_image_key.url
 
 
 class ShoppingMallAddRequest(models.Model):
@@ -124,3 +129,4 @@ class PurchasedTime(models.Model):
     month = models.PositiveIntegerField(null=True, blank=True)
     week = models.PositiveIntegerField(null=True, blank=True)
     date = models.DateTimeField(null=True, blank=True, help_text="현재 사용하지 않는 정확한 날짜 필드입니다.")
+
