@@ -1,8 +1,8 @@
-from .base import *
+from siiot.settings.base import *
 SETTING_DEV_DIC = load_credential("develop")
-SECRET_KEY = SETTING_DEV_DIC['SECRET_KEY']
 
 # SECURITY WARNING: don't run with debug turned on in production!
+SECRET_KEY = SETTING_DEV_DIC['SECRET_KEY']
 DEBUG = True
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '*']
@@ -11,7 +11,8 @@ ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '*']
 # https://docs.djangoproject.com/en/3.0/ref/settings/#databases
 
 DATABASES = {
-    'default': SETTING_DEV_DIC["default"]
+    'default': SETTING_DEV_DIC["default"],
+    'bengal': load_credential('BENGAL_DATABASE'),
 }
 
 # # AWS

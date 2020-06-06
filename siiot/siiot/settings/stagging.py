@@ -7,7 +7,8 @@ DEBUG = True
 ALLOWED_HOSTS = ['127.0.0.1', '13.125.84.188', '15.164.101.147']
 
 DATABASES = {
-    'default': SETTING_STAG_DIC["default"]
+    'default': SETTING_STAG_DIC["default"],
+    'bengal': load_credential('BENGAL_DATABASE'),
 }
 
 

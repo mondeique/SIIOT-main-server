@@ -10,15 +10,31 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.0/ref/settings/
 """
 
-import os
+import sys, os
+from os.path import abspath, basename, dirname, join, normpath
+from siiot.loader import load_credential
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
-from ..loader import load_credential
-
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASE_DIR = os.path.dirname(PROJECT_DIR)
 
 # Application definition
+
+########## PATH CONFIGURATION
+# Absolute filesystem path to the Django project directory:
+DJANGO_ROOT = dirname(dirname(abspath(__file__)))
+
+# Absolute filesystem path to the top-level project folder:
+SITE_ROOT = dirname(DJANGO_ROOT)
+
+# Site name:
+SITE_NAME = basename(DJANGO_ROOT)
+
+# Add our project to our pythonpath, this way we don't need to type our project
+# name in our dotted import paths:
+sys.path.append(DJANGO_ROOT)
+########## END PATH CONFIGURATION
+
 
 INSTALLED_APPS = [
     # Default Django apps
@@ -39,11 +55,10 @@ SECONDS_APPS = [
     'accounts',
     'cunsom_manage',
     'products.category',
-    'products.crawler',
     'products.shopping_mall',
     'products.supplymentary',
     'products',
-
+    'crawler'
     # 'api',
     # 'notice',
     # 'landing',
@@ -81,7 +96,10 @@ THIRD_APPS = [
 
     # django-imagekit
     'imagekit',
-    'ajax_select'
+    'ajax_select',
+
+    # selenium
+    'selenium'
 ]
 
 INSTALLED_APPS += SECONDS_APPS + THIRD_APPS
@@ -163,6 +181,10 @@ AUTHENTICATION_BACKENDS = (
     'allauth.account.auth_backends.AuthenticationBackend',
 )
 
+# router
+DATABASE_ROUTERS = [
+    'siiot.router.SiiotDataRouter'
+]
 
 SITE_ID = 1
 
@@ -239,3 +261,11 @@ INTERNAL_IPS = ('127.0.0.1',)
 #         },
 #     },
 # }
+
+# Celery
+CELERY_BROKER_URL = 'redis://0.0.0.0:6379'
+CELERY_RESULT_BACKEND = 'redis://0.0.0.0:6379'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TAST_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Seoul'
