@@ -144,3 +144,7 @@ class ProductUploadRequest(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # TODO : 저장(is_done) 시 product update
+    # def save(self, force_insert=False, force_update=False, using=None,
+             # update_fields=None):

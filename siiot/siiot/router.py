@@ -13,6 +13,6 @@ class SiiotDataRouter(object):
         return True
 
     def allow_migrate(self, db, app_label, model_name=None, **hints):
-        if db in ('crawler'):
+        if db in ('bengal'):
             return False
         return True

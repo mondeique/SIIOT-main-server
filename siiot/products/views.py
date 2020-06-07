@@ -1,6 +1,7 @@
 import requests
 from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
+from django.utils import timezone
 
 from rest_framework.response import Response
 from rest_framework import status
@@ -12,12 +13,19 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 # Create your views here.
 from products.models import Product, ProductImages, ProductUploadRequest
 from products.serializers import ProductFirstSaveSerializer, ReceiptSaveSerializer, ProductSaveSerializer, \
-    ProductImageSaveSerializer, ProductUploadDetailInfoSerializer
+    ProductImageSaveSerializer, ProductUploadDetailInfoSerializer, ProductTempUploadDetailInfoSerializer
+from products.shopping_mall.models import ShoppingMall
+from products.shopping_mall.serializers import ShoppingMallSerializer
 from products.slack import slack_message
+from products.supplymentary.serializers import ShoppingMallDemandSerializer
 from products.utils import crawl_request
 
 
-class ProductViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, mixins.UpdateModelMixin):
+class ProductViewSet(viewsets.GenericViewSet,
+                     mixins.CreateModelMixin,
+                     mixins.UpdateModelMixin,
+                     mixins.RetrieveModelMixin,
+                     mixins.ListModelMixin):
     permission_classes = [IsAuthenticated, ]
     queryset = Product.objects.all()
 
@@ -38,6 +46,8 @@ class ProductViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, mixins.Up
             return ProductImageSaveSerializer
         elif self.action in ['update', ' complete']:
             return ProductSaveSerializer
+        elif self.action == 'temp_data':
+            return ProductTempUploadDetailInfoSerializer
         else:
             return super(ProductViewSet, self).get_serializer_class()
 
@@ -60,7 +70,7 @@ class ProductViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, mixins.Up
         """
         상품 업로드 시 가장먼저 저장되는 정보(업로드 타입, 상태, 쇼핑몰, 링크)까지 저장하는 api 입니다.
         처음 호출하기 때문에 create를 활용하여 설정하였습니다.
-        * 이 api 가 호출되는 시점에 crawling server에 요청을 보냅니다. (TODO)
+        * 이 api 가 호출되는 시점에 crawling server에 요청을 보냅니다.
         * 특히 새로 등록할 때 호출되기 때문에 이전에 임시저장했던 상품은 임시저장 해제합니다.
         api : POST api/v1/product
 
@@ -74,18 +84,18 @@ class ProductViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, mixins.Up
         user = request.user
         data = request.data.copy()
 
-        temp_products = Product.objects.filter(seller=user, temp_save=True)
+        temp_products = self.get_queryset().filter(seller=user, temp_save=True)
+
+        # temp data reset
+        if temp_products.exists():
+            for temp_product in temp_products:
+                temp_product.temp_save = False
+                temp_product.save()
 
         # save here
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         product = serializer.save()
-
-        # temp save reset
-        if temp_products.exists():
-            for temp_product in temp_products:
-                temp_product.temp_save = False
-                temp_product.save()
 
         # crawl request
         product_url = data.get('product_url')
@@ -154,6 +164,8 @@ class ProductViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, mixins.Up
         """
         상품 업로드 과정에서 각각의 정보(사진제외)를 입력 할 때마다 호출되는(업데이트 되는) api 입니다.
         * 매번 호출하는게 문제가 없을까?
+        ** product upload 흐름 :
+            사진유형(사진,구매내역) 따로 저장, 나머지 data는 매번 update코드로 저장 | 상품 수정시에도 같은 플로우
         api : PUT api/v1/product/{id}/
 
         data : serializer 참고
@@ -171,12 +183,14 @@ class ProductViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, mixins.Up
         """
         직접 업로드 시 상품 업로드를 완료했을 때 호출되는 api 입니다.
         update 에 보냈던 데이터 형식과 동일하게 보내주어야 합니다(최종 저장)
+        최종저장시 임시저장 필드를 False로 바꾸어 조회되지 않도록 저장합니다.
         api : PUT api/v1/product/{id}/complete
 
         data : update()에서 사용했던 데이터와 동일
         """
         data = request.data.copy()
         data['possible_upload'] = True
+        data['temp_save'] = False
         obj = self.get_object()
         serializer = self.get_serializer(obj, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -188,13 +202,16 @@ class ProductViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, mixins.Up
     def complete_with_receipt(self, request, *args, **kwargs):
         """
         구매내역 첨부로 업로드 완성시 호출되는 api 입니다.
+        저장시 임시저장 필드를 False로 바꾸어 조회되지 않도록 저장합니다.
         update 와 동일하게 저장하며 추가적으로 slack에 연동하여 알림을 줍니다.
         api : PUT api/v1/product/{id}/complete_with_receipt
 
         data : update()에서 사용했던 데이터와 동일
         """
+        data = request.data.copy()
+        data['temp_save'] = False
         obj = self.get_object()
-        serializer = self.get_serializer(obj, data=request.data, partial=True)
+        serializer = self.get_serializer(obj, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
         product = serializer.save()
 
@@ -202,7 +219,102 @@ class ProductViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, mixins.Up
         left_count = ProductUploadRequest.objects.filter(is_done=False).count()
 
         # slack message
-        slack_message("[업로드 요청] [id:{}] -상품명:{}, -신청자:{} || 남은개수 {}".
-                      format(upload_req.id, product.name, request.user, left_count))
+        slack_message("[업로드 요청] [id:{}] -상품명:{}, -신청자:{} || 남은개수 {} ({})".
+                      format(upload_req.id, product.name, request.user, left_count,
+                             timezone.now().strftime('%y/%m/%d %H:%M')),
+                      'upload_request')
 
         return Response(status=status.HTTP_206_PARTIAL_CONTENT)
+
+    @action(methods=['get'], detail=False)
+    def temp_data(self, request, *args, **kwargs):
+        """
+        임시저장한 상품정보를 조회할 때 사용하는 api 입니다.
+        상품 업로드 과정에 전송했던 모든 데이터를 한번에 return 합니다.
+        특히, 업로드시 처음 입력하는 upload_type, 구매내역 등과 같은 변수도 함께 return 하여 유저가 뒤로가기
+        버튼을 눌렀을 때 클라에서 참고할 수 있도록 합니다. (TODO: 개발구현 논의필요)
+        api : GET api/v1/product/temp_data
+
+        :return serializer 참고
+        """
+        user = request.user
+        queryset = self.get_queryset().filter(seller=user, temp_save=True)
+        if not queryset.exists():
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        temp_product = queryset.last()
+
+        serializer = self.get_serializer(temp_product)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def retrieve(self, request, *args, **kwargs):
+        """
+        상품 조회하는 api 입니다.
+        TODO? : retrieve 할 때마다 링크 유효한지 조회?
+        api: GET api/v1/product/{id}
+        """
+        pass
+
+    def list(self, request, *args, **kwargs):
+        """
+        상품 list 조회하는 api 입니다.
+        추가할 것) 판매자 상품인지 아닌지 등과 같은 부가정보 (기획필수)
+        api: GET api/v1/product
+        """
+        pass
+
+
+class ShoppingMallViewSet(viewsets.GenericViewSet):
+    queryset = ShoppingMall.objects.all(is_active=True)
+    permission_classes = [IsAuthenticated, ]
+    serializer_class = ShoppingMallSerializer
+
+    def list(self, request, *args, **kwargs):
+        """
+        쇼핑몰 리스트 요청하는 api 입니다.
+        api: GET ap1/v1/shopping_mall
+        """
+        queryset = self.get_queryset().order_by('order')
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(methods=['post'], detail=False)
+    def searching(self, request, *args, **kwargs):
+        """
+        shopping mall 검색을 할 때 각 글자에 해당하는 쇼핑몰을 조회하는 api 입니다.
+        api: POST api/v1/shopping_mall/searching
+        """
+        keyword = request.data['keyword']
+        if keyword:
+            value = self.get_queryset()\
+                    .filter(name__icontains=keyword) \
+                    .order_by('id')[:20]
+            serializer = self.get_serializer(value, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            queryset = self.get_queryset().order_by('order')
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(methods=['post'], detail=False)
+    def demand(self, request, *args, **kwargs):
+        """
+        쇼핑몰 추가 요청하는 api 입니다.
+        api: POST api/v1/shopping_mall/demand
+        """
+        serializer = ShoppingMallDemandSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        demand = serializer.save()
+
+        # slack message
+        slack_message("[쇼핑몰 크롤링 요청] -쇼핑몰명:{}, -신청자:{}, 신청일 {}".
+                      format(demand.shoppingmall_name, demand.user, timezone.now().strftime('%y/%m/%d %H:%M')),
+                      'shopping_mall_demand')
+
+        return Response(status=status.HTTP_201_CREATED)
+
+
+class ProductCategoryViewSet(viewsets.GenericViewSet):
+    permission_classes = [IsAuthenticated,]
+
+
