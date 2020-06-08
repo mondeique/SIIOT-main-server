@@ -8,7 +8,6 @@ from django.utils import timezone
 
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
 from rest_framework import viewsets, mixins
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -25,6 +24,7 @@ from products.shopping_mall.serializers import ShoppingMallSerializer
 from products.slack import slack_message
 from products.supplymentary.serializers import ShoppingMallDemandSerializer
 from products.utils import crawl_request
+import cfscrape
 
 
 class ProductViewSet(viewsets.GenericViewSet,
@@ -59,6 +59,7 @@ class ProductViewSet(viewsets.GenericViewSet,
 
     @action(methods=['post'], detail=False)
     def check_url(self, request, *args, **kwargs):
+
         """
         링크 입력 후 '확인' 버튼을 누를 때 호출되는 api 입니다.
         api : POST api/v1/product/check_url
@@ -67,11 +68,13 @@ class ProductViewSet(viewsets.GenericViewSet,
         """
         data = request.data
         url = data.get('url')
-        response = requests.post(url)
-        if response.status_code == 200:
+        scraper = cfscrape.create_scraper()
+        r = scraper.get(url)
+
+        if r.status_code == 200:
             return Response(status=status.HTTP_200_OK)
         else:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
     def create(self, request, *args, **kwargs):
         """
@@ -268,7 +271,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         추가할 것) 판매자 상품인지 아닌지 등과 같은 부가정보 (기획필수)
         api: GET api/v1/product
         """
-        pass
+        return super(ProductViewSet, self).list(request, *args, **kwargs)
 
 
 class ShoppingMallViewSet(viewsets.GenericViewSet):
