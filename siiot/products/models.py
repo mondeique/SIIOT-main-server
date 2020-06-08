@@ -2,7 +2,7 @@ from django.conf import settings
 from django.db import models
 
 from core.fields import S3ImageKeyField
-from products.category.models import MixCategory, Size, Color
+from products.category.models import MixCategory, Size, Color, SecondCategory
 from products.shopping_mall.models import ShoppingMall
 from products.supplymentary.models import SizeCaptureImage, PurchasedTime, PurchasedReceipt
 
@@ -73,7 +73,7 @@ class Product(models.Model):
     sold_status = models.IntegerField(choices=SOLD_STATUS, null=True, blank=True, verbose_name='판매 과정')
 
     # category
-    category = models.ForeignKey(MixCategory, on_delete=models.SET_NULL, null=True, blank=True,
+    category = models.ForeignKey(SecondCategory, on_delete=models.SET_NULL, null=True, blank=True,
                                  help_text="카테고리 참고 모델입니다. 카테고리 모델은 조합마다 하나만 생성됩니다,")
     color = models.ForeignKey(Color, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
     size = models.ForeignKey(Size, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
@@ -135,7 +135,10 @@ class ProductImages(models.Model):
 
 
 class ProductUploadRequest(models.Model):
-
+    """
+    구매내역 첨부 후 업로드 요청이 생길 때 생성됩니다.
+    admin page에서 해당 모델을 하나씩 처리해 가면 됩니다.
+    """
     product = models.ForeignKey('Product', related_name='upload_requests', on_delete=models.CASCADE)
     is_done = models.BooleanField(default=False)
 
@@ -145,6 +148,8 @@ class ProductUploadRequest(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # TODO : 저장(is_done) 시 product update
-    # def save(self, force_insert=False, force_update=False, using=None,
-             # update_fields=None):
+    def save(self, *args, **kwargs):
+        if self.is_done:
+            self.product.possible_upload = True
+            self.product.save()
+        super(ProductUploadRequest, self).save(*args, **kwargs)

@@ -1,6 +1,9 @@
+import uuid
+
 import requests
 from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
+from django.http import Http404
 from django.utils import timezone
 
 from rest_framework.response import Response
@@ -11,6 +14,9 @@ from rest_framework import viewsets, mixins
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 # Create your views here.
+from products.category.models import FirstCategory, SecondCategory, Size, Color
+from products.category.serializers import FirstCategorySerializer, SecondCategorySerializer, SizeSerializer, \
+    ColorSerializer
 from products.models import Product, ProductImages, ProductUploadRequest
 from products.serializers import ProductFirstSaveSerializer, ReceiptSaveSerializer, ProductSaveSerializer, \
     ProductImageSaveSerializer, ProductUploadDetailInfoSerializer, ProductTempUploadDetailInfoSerializer
@@ -55,6 +61,7 @@ class ProductViewSet(viewsets.GenericViewSet,
     def check_url(self, request, *args, **kwargs):
         """
         링크 입력 후 '확인' 버튼을 누를 때 호출되는 api 입니다.
+        api : POST api/v1/product/check_url
 
         data : "url"
         """
@@ -219,7 +226,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         left_count = ProductUploadRequest.objects.filter(is_done=False).count()
 
         # slack message
-        slack_message("[업로드 요청] [id:{}] -상품명:{}, -신청자:{} || 남은개수 {} ({})".
+        slack_message("[업로드 요청] \n [id:{}] -상품명:{}, -신청자:{} || 남은개수 {} ({})".
                       format(upload_req.id, product.name, request.user, left_count,
                              timezone.now().strftime('%y/%m/%d %H:%M')),
                       'upload_request')
@@ -265,7 +272,7 @@ class ProductViewSet(viewsets.GenericViewSet,
 
 
 class ShoppingMallViewSet(viewsets.GenericViewSet):
-    queryset = ShoppingMall.objects.all(is_active=True)
+    queryset = ShoppingMall.objects.filter(is_active=True)
     permission_classes = [IsAuthenticated, ]
     serializer_class = ShoppingMallSerializer
 
@@ -307,7 +314,7 @@ class ShoppingMallViewSet(viewsets.GenericViewSet):
         demand = serializer.save()
 
         # slack message
-        slack_message("[쇼핑몰 크롤링 요청] -쇼핑몰명:{}, -신청자:{}, 신청일 {}".
+        slack_message("[쇼핑몰 크롤링 요청] \n 쇼핑몰명:{}, -신청자:{}, 신청일 {}".
                       format(demand.shoppingmall_name, demand.user, timezone.now().strftime('%y/%m/%d %H:%M')),
                       'shopping_mall_demand')
 
@@ -315,6 +322,129 @@ class ShoppingMallViewSet(viewsets.GenericViewSet):
 
 
 class ProductCategoryViewSet(viewsets.GenericViewSet):
-    permission_classes = [IsAuthenticated,]
+    permission_classes = [IsAuthenticated, ]
+
+    def get_queryset(self):
+        queryset = FirstCategory.objects.filter(is_active=True, gender=FirstCategory.WOMAN)
+        if self.action == 'second_category':
+            queryset = SecondCategory.objects.filter(is_active=True)
+        elif self.action == 'size':
+            queryset = Size.objects.all()
+        elif self.action == 'color':
+            queryset = Color.objects.filter(is_active=True)
+        return queryset
+
+    def get_serializer_class(self):
+        if self.action == 'first_category':
+            return FirstCategorySerializer
+        elif self.action == 'second_category':
+            return SecondCategorySerializer
+        elif self.action == 'size':
+            return SizeSerializer
+        elif self.action == 'color':
+            return ColorSerializer
+        else:
+            return super(ProductCategoryViewSet, self).get_serializer_class()
+
+    @action(methods=['get'], detail=False)
+    def first_category(self, request, *args, **kwargs):
+        """
+        first_category 를 조회하는 api 입니다.
+        api: GET api/v1/category/first_category
+
+        :return serialzier 참고
+        """
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(methods=['get'], detail=True)
+    def second_category(self, request, *args, **kwargs):
+        """
+        second_category 를 조회하는 api 입니다.
+        api: GET api/v1/category/{id}/second_category
+        *id 는 first category
+        :return serialzier 참고
+        """
+        fc_pk = kwargs['pk']
+        try:
+            first_category = FirstCategory.objects.get(pk=fc_pk)
+        except FirstCategory.DoesNotExist:
+            raise Http404
+        queryset = self.get_queryset().filter(first_category=first_category)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(methods=['get'], detail=True)
+    def size(self, request, *args, **kwargs):
+        """
+        size 를 조회하는 api 입니다.
+        api: GET api/v1/category/{id}/size
+        *id 는 first category
+        :return serialzier 참고
+        """
+        fc_pk = kwargs['pk']
+        try:
+            first_category = FirstCategory.objects.get(pk=fc_pk)
+        except FirstCategory.DoesNotExist:
+            raise Http404
+        queryset = self.get_queryset().filter(category=first_category)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(methods=['get'], detail=False)
+    def color(self, request, *args, **kwargs):
+        """
+        color 를 조회하는 api 입니다.
+        api: GET api/v1/category/color/
+        :return serialzier 참고
+        """
+        queryset = self.get_queryset().order_by('order')
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 
+class S3ImageUploadViewSet(viewsets.GenericViewSet):
+    permission_classes = [IsAuthenticated, ]
+
+    @action(methods=['get'], detail=False)
+    def receipt_key(self, request):
+        """
+        구매내역 첨부 시 uuid를 발급받는 api 입니다. (TODO : presigned url)
+        api: GET ap1/v1/s3/receipt_key
+
+        """
+        ext = request.GET.get('ext', 'jpg')
+        if ext not in ('jpg', 'mp3', 'mp4'):
+            ext = 'jpg'
+        key = uuid.uuid4()
+        image_key = "%s.%s" % (key, ext)
+        url = "https://{}.s3.amazonaws.com/".format('siiot-server-storages-dev') # TODO: production s3
+        content_type = "image/jpeg"
+        data = {"url": url, "image_key": image_key, "content_type": content_type, "key": key}
+        return Response(data)
+
+    @action(methods=['post'], detail=False)
+    def image_key_list(self, request):
+        """
+        이미지 첨부시 uuid list를 발급받는 api 입니다. (TODO : presigned url)
+        api: POST api/v1/s3/image_key_list
+        data : {'count' : int}
+
+        """
+        data = request.data
+        count = int(data['count'])
+        temp_key_list = []
+        for i in range(count):
+            temp_key = self.fun_temp_key()
+            temp_key_list.append(temp_key)
+        return Response(temp_key_list)
+
+    def fun_temp_key(self):
+        ext = 'jpg'
+        key = uuid.uuid4()
+        image_key = "%s.%s" % (key, ext)
+        url = "https://{}.s3.amazonaws.com/".format('siiot-server-storages-dev') # TODO: production s3
+        content_type = "image/jpeg"
+        data = {"url": url, "image_key": image_key, "content_type": content_type, "key": key}
+        return data

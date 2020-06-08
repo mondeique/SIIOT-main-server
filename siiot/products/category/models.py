@@ -9,9 +9,9 @@ class FirstCategory(models.Model):
     MAN = 2
     UNISEX = 3
     GENDER = (
-        (WOMAN, 1),
-        (MAN, 2),
-        (UNISEX, 3)
+        (WOMAN, 'WOMAN'),
+        (MAN, 'MAN'),
+        (UNISEX, 'UNISEX')
     )
     gender = models.IntegerField(choices=GENDER, default=1)
     name = models.CharField(max_length=100)
@@ -20,7 +20,7 @@ class FirstCategory(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return "[{}]{}".format(self.gender, self.name)
+        return "[{}]{}".format(self.get_gender_display(), self.name)
 
 
 class SecondCategory(models.Model):
@@ -39,7 +39,8 @@ class SecondCategory(models.Model):
 
 class MixCategory(models.Model):
     """
-    Product 가 참조하는 category 모델입니다. 카테고리 조합마다 하나씩 생성되어 같은 category 조합을 참고합니다.
+    [DEPRECATED]
+    * 원래 목적이었던 중복되는 카테고리를 없애는 방법은 SecondCategory 모델을 사용하면 됨.
     """
     first_category = models.ForeignKey(FirstCategory, on_delete=models.CASCADE, related_name="mix_first_categories")
     second_category = models.ForeignKey(SecondCategory, on_delete=models.CASCADE, related_name="mix_second_categories")
@@ -51,6 +52,7 @@ class Size(models.Model):
     size = models.PositiveIntegerField(null=True, blank=True,
                                        help_text='기본 size (ex: 66, 신발인경우 245 등), 범위가 있다면 최소 사이즈 (ex: 24~)')
     size_max = models.PositiveIntegerField(null=True, blank=True, help_text='사이즈 범위가 있는 경우 최대 사이즈 (ex: ~26')
+    direct_input = models.CharField(max_length=100, null=True, blank=True, verbose_name='직접입력')
 
     def __str__(self):
         if self.size_max:

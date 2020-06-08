@@ -27,21 +27,12 @@ from cunsom_manage.sites import staff_panel, superadmin_panel
 urlpatterns = [
 
     # api
-    # path('grappelli/', include('grappelli.urls')), # grappelli URLS
     path('superadmin/', superadmin_panel.urls),
     path('staff/', staff_panel.urls),
     path('admin/', admin.site.urls),
-    # path('api/', include('api.urls')),
-    # path('api/chat/', include('chat.urls')),
-    path('accounts/', include('accounts.urls')),
-    # path('accounts/', include('allauth.urls')),
-    # path('api/', include('payment.urls')),
-    # path('api/', include('user_activity.urls')),
-    # path('api/', include('notice.urls')),
-    #
-    # path('api/', include('test.urls')),
-    #
-    # path('', include('landing.urls')),
+    path('api/v1/', include('products.urls')),
+    path('accounts/v1/', include('accounts.urls')),
+
     # ckeditor
     path('ckeditor/', include('ckeditor_uploader.urls')),
 ]

@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from crawler.models import CrawlProduct
 from products.models import Product, ProductImages
-from products.supplymentary.models import PurchasedReceipt
+from products.supplymentary.models import PurchasedReceipt, PurchasedTime
 
 
 class ProductFirstSaveSerializer(serializers.ModelSerializer):
@@ -23,10 +23,13 @@ class ProductFirstSaveSerializer(serializers.ModelSerializer):
 
 class ProductUploadDetailInfoSerializer(serializers.ModelSerializer):
     """
-    상품 업로드 시에 크롤링된 정보 + (option)구매내역 key를 보여주는 serializer 입니다.
+    상품 업로드 과정 중 크롤링된 정보 + (option)구매내역 key를 보여주는 serializer 입니다.
     임시저장 불러올 때는 사용 x
     """
     receipt_image_url = serializers.SerializerMethodField()
+    crawl_thumbnail_image_url = serializers.SerializerMethodField()
+    crawl_product_price = serializers.SerializerMethodField()
+    crawl_product_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -43,6 +46,18 @@ class ProductUploadDetailInfoSerializer(serializers.ModelSerializer):
         else:
             return None
 
+    def get_crawl_thumbnail_image_url(self, instance):
+        c_product = CrawlProduct.objects.get(id=instance.crawl_product_id)
+        return c_product.thumbnail_url
+
+    def get_crawl_product_price(self, instance):
+        c_product = CrawlProduct.objects.get(id=instance.crawl_product_id)
+        return c_product.price
+
+    def get_crawl_product_name(self, instance):
+        c_product = CrawlProduct.objects.get(id=instance.crawl_product_id)
+        return c_product.product_name
+
 
 class ProductTempUploadDetailInfoSerializer(serializers.ModelSerializer):
     """
@@ -51,12 +66,15 @@ class ProductTempUploadDetailInfoSerializer(serializers.ModelSerializer):
     * 참고 : crawl_product_name 대신 name으로 통합함: name 작성했던게 있으면 name, 없으면 crawl product name
     
     ** category, purchased_time 같이 다른 모델 참고하는 필드는 int(id) 주는데 클라에서 어떻게 할 건지 얘기필요
+    % python class 목적에 맞게 구현하였으나, 오류가 나면 수정 필요함.
     """
     receipt_image_url = serializers.SerializerMethodField()
     crawl_thumbnail_image_url = serializers.SerializerMethodField()
     name = serializers.SerializerMethodField()
     crawl_product_price = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
+    purchased_year = serializers.SerializerMethodField()
+    purchased_month = serializers.SerializerMethodField()
 
     def __init__(self):
         super(ProductTempUploadDetailInfoSerializer, self).__init__()
@@ -74,7 +92,7 @@ class ProductTempUploadDetailInfoSerializer(serializers.ModelSerializer):
                   'name',
                   'crawl_product_price',
                   'price', 'content', 'free_delivery',
-                  'category', 'color', 'size', 'purchased_time',
+                  'category', 'color', 'size', 'purchased_year', 'purchased_month'
                   ]
 
     def set_obj(self, instance):
@@ -111,13 +129,43 @@ class ProductTempUploadDetailInfoSerializer(serializers.ModelSerializer):
     def get_crawl_product_price(self):
         return self.c_product.price
 
+    def get_purchased_month(self):
+        if hasattr(self.obj, 'purchased_time'):
+            time = self.obj.purchased_time
+            month = time.month
+            return month
+        return None
+
+    def get_purchased_year(self):
+        if hasattr(self.obj, 'purchased_time'):
+            time = self.obj.purchased_time
+            year = time.year
+            return year
+        return None
+
 
 class ProductSaveSerializer(serializers.ModelSerializer):
+    """
+    상품 임시저장 및 최종저장 시 사용하는 serializer 입니다.
+    * purchased time의 경우 purchased_year, purchased_month를 입력받아 서버에서 따로 저장합니다.
+    * category 의 경우 second_category의 id 를 받습니다.
+    """
     class Meta:
         model = Product
         fields = ['name', 'price', 'content', 'free_delivery',
-                  'category', 'color', 'size', 'purchased_time',
-                  ]
+                  'category', 'color', 'size', 'purchased_year', 'purchased_month']
+
+    def update(self, instance, validated_data):
+        year = validated_data.pop('purchased_year')
+        month = validated_data.pop('purchased_month')
+
+        product = super(ProductSaveSerializer, self).update(instance, validated_data)
+        time = PurchasedTime.objects.create(year=int(year), month=int(month))
+
+        product.purchased_time = time
+        product.save()
+
+        return product
 
 
 class ReceiptSaveSerializer(serializers.ModelSerializer):
@@ -135,5 +183,5 @@ class ProductImageSaveSerializer(serializers.ModelSerializer):
 class ProductImagesRetrieveSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImages
-        fields = ('image_key')
+        fields = ('image_key', )
 
