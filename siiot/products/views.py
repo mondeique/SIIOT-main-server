@@ -93,8 +93,8 @@ class ProductViewSet(viewsets.GenericViewSet,
         
         :return {"id", "crawl_thumbnail_image_url", 
                  "receipt_image_url(optional), <- 구매내역 첨부 후 상세정보 입력할 때만 data 존재
-                 "crawl_product_name",
-                 "crawl_product_price"}
+                 "crawl_data: {'thumbnail_image_url': ~~, "product_name":~~, "int_price":~~ }",
+                 }
         """
         user = request.user
         data = request.data.copy()
