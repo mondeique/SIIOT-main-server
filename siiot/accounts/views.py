@@ -58,6 +58,8 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         phone_confirm = PhoneConfirm.objects.get(temp_key=temp_key)
         if not phone_confirm.is_confirmed:
             return Response("Unconfirmed Phone number", status=status.HTTP_401_UNAUTHORIZED)
+        if phone_confirm.phone != data.get("phone"):
+            return Response("Not match phone number & temp key", status=status.HTTP_401_UNAUTHORIZED)
 
         # user 생성
         serializer = self.get_serializer(data=data)
@@ -141,6 +143,8 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         phone_confirm = PhoneConfirm.objects.get(temp_key=temp_key)
         if not phone_confirm.is_confirmed:
             return Response("Unconfirmed phone number", status=status.HTTP_401_UNAUTHORIZED)
+        if phone_confirm.phone != data.get("phone"):
+            return Response("Not match phone number & temp key", status=status.HTTP_401_UNAUTHORIZED)
 
         phone = data.pop('phone')
         user = User.objects.filter(phone=phone, is_active=True)
