@@ -3,6 +3,7 @@ import uuid
 import requests
 from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
+from django.db import transaction
 from django.http import Http404
 from django.utils import timezone
 
@@ -13,6 +14,7 @@ from rest_framework import viewsets, mixins
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 # Create your views here.
+from crawler.models import CrawlProduct
 from products.category.models import FirstCategory, SecondCategory, Size, Color
 from products.category.serializers import FirstCategorySerializer, SecondCategorySerializer, SizeSerializer, \
     ColorSerializer
@@ -50,7 +52,7 @@ class ProductViewSet(viewsets.GenericViewSet,
             return ReceiptSaveSerializer
         elif self.action == 'images':
             return ProductImageSaveSerializer
-        elif self.action in ['update', ' complete']:
+        elif self.action in ['update', 'complete', 'complete_with_receipt']:
             return ProductSaveSerializer
         elif self.action == 'temp_data':
             return ProductTempUploadDetailInfoSerializer
@@ -64,10 +66,10 @@ class ProductViewSet(viewsets.GenericViewSet,
         링크 입력 후 '확인' 버튼을 누를 때 호출되는 api 입니다.
         api : POST api/v1/product/check_url
 
-        data : "url"
+        data : "product_url"
         """
         data = request.data
-        url = data.get('url')
+        url = data.get('product_url')
         scraper = cfscrape.create_scraper()
         r = scraper.get(url)
 
@@ -76,6 +78,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         else:
             return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         """
         상품 업로드 시 가장먼저 저장되는 정보(업로드 타입, 상태, 쇼핑몰, 링크)까지 저장하는 api 입니다.
@@ -109,7 +112,10 @@ class ProductViewSet(viewsets.GenericViewSet,
 
         # crawl request
         product_url = data.get('product_url')
-        crawl_product_id = crawl_request(product_url)
+        if CrawlProduct.objects.filter(product_url=product_url).exists():
+            crawl_product_id = CrawlProduct.objects.filter(product_url=product_url).last().id
+        else:
+            crawl_product_id = crawl_request(product_url)
 
         # product crawl id save
         product.crawl_product_id = crawl_product_id
@@ -156,7 +162,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         product = self.get_object()
         image_key_list = data.get('image_key')
 
-        if not image_key_list or isinstance(image_key_list, list):
+        if not image_key_list or not isinstance(image_key_list, list):
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
         bulk_create_list = []
@@ -180,14 +186,23 @@ class ProductViewSet(viewsets.GenericViewSet,
 
         data : serializer 참고
         """
-        # obj = self.get_object()
-        # serializer = self.get_serializer(obj, data=request.data, partial=True)
-        # serializer.is_valid(raise_exception=True)
-        # serializer.save()
-        # return Response(status=status.HTTP_206_PARTIAL_CONTENT)
+        data = request.data.copy()
+        year = data.pop('purchased_year', None)
+        month = data.pop('purchased_month', None)
+        obj = self.get_object()
+        serializer = self.get_serializer(obj, data=data, partial=True)
 
-        return super(ProductViewSet, self).partial_update(request, *args, **kwargs)
+        # purchased time 을 int 로 받기 위해 valid 이후 data 추가함. (TODO: better code!)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        data = serializer.validated_data
+        data.update({'purchased_year': year, 'purchased_month': month})
+        serializer.update(obj, data)
+
+        return Response(status=status.HTTP_206_PARTIAL_CONTENT)
+
+    @transaction.atomic
     @action(methods=['put'], detail=True)
     def complete(self, request, *args, **kwargs):
         """
@@ -201,13 +216,21 @@ class ProductViewSet(viewsets.GenericViewSet,
         data = request.data.copy()
         data['possible_upload'] = True
         data['temp_save'] = False
+        year = data.pop('purchased_year', None)
+        month = data.pop('purchased_month', None)
         obj = self.get_object()
         serializer = self.get_serializer(obj, data=data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
+
+        # purchased time 을 int 로 받기 위해 valid 이후 data 추가함. (TODO: better code!)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        data = serializer.validated_data
+        data.update({'purchased_year': year, 'purchased_month': month})
+        serializer.update(obj, data)
 
         return Response(status=status.HTTP_206_PARTIAL_CONTENT)
 
+    @transaction.atomic
     @action(methods=['put'], detail=True)
     def complete_with_receipt(self, request, *args, **kwargs):
         """
@@ -220,15 +243,21 @@ class ProductViewSet(viewsets.GenericViewSet,
         """
         data = request.data.copy()
         data['temp_save'] = False
+        year = data.pop('purchased_year', None)
+        month = data.pop('purchased_month', None)
         obj = self.get_object()
         serializer = self.get_serializer(obj, data=data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        product = serializer.save()
 
-        upload_req = ProductUploadRequest.objects.create(product=product)
-        left_count = ProductUploadRequest.objects.filter(is_done=False).count()
+        # purchased time 을 int 로 받기 위해 valid 이후 data 추가함. (TODO: better code!)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        data = serializer.validated_data
+        data.update({'purchased_year': year, 'purchased_month': month})
+        product = serializer.update(obj, data)
 
         # slack message
+        upload_req = ProductUploadRequest.objects.create(product=product)
+        left_count = ProductUploadRequest.objects.filter(is_done=False).count()
         slack_message("[업로드 요청] \n [id:{}] -상품명:{}, -신청자:{} || 남은개수 {} ({})".
                       format(upload_req.id, product.name, request.user, left_count,
                              timezone.now().strftime('%y/%m/%d %H:%M')),
@@ -422,7 +451,7 @@ class S3ImageUploadViewSet(viewsets.GenericViewSet):
             ext = 'jpg'
         key = uuid.uuid4()
         image_key = "%s.%s" % (key, ext)
-        url = "https://{}.s3.amazonaws.com/".format('siiot-server-storages-dev') # TODO: production s3
+        url = "https://{}.s3.amazonaws.com/".format('siiot-media-storage') # TODO: production s3
         content_type = "image/jpeg"
         data = {"url": url, "image_key": image_key, "content_type": content_type, "key": key}
         return Response(data)
@@ -447,7 +476,7 @@ class S3ImageUploadViewSet(viewsets.GenericViewSet):
         ext = 'jpg'
         key = uuid.uuid4()
         image_key = "%s.%s" % (key, ext)
-        url = "https://{}.s3.amazonaws.com/".format('siiot-server-storages-dev') # TODO: production s3
+        url = "https://{}.s3.amazonaws.com/".format('siiot-media-storage') # TODO: production s3
         content_type = "image/jpeg"
         data = {"url": url, "image_key": image_key, "content_type": content_type, "key": key}
         return data

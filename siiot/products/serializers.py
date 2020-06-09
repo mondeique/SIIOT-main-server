@@ -41,7 +41,7 @@ class ProductUploadDetailInfoSerializer(serializers.ModelSerializer):
                   ]
 
     def get_receipt_image_url(self, instance):
-        if hasattr(instance, 'receipt'):
+        if instance.receipt:
             return instance.receipt.image_url
         else:
             return None
@@ -153,17 +153,18 @@ class ProductSaveSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ['name', 'price', 'content', 'free_delivery',
-                  'category', 'color', 'size', 'purchased_year', 'purchased_month']
+                  'category', 'color', 'size', 'purchased_time', 'possible_upload', 'temp_save']
 
     def update(self, instance, validated_data):
-        year = validated_data.pop('purchased_year')
-        month = validated_data.pop('purchased_month')
-
+        year = validated_data.pop('purchased_year', None)
+        month = validated_data.pop('purchased_month', None)
         product = super(ProductSaveSerializer, self).update(instance, validated_data)
-        time = PurchasedTime.objects.create(year=int(year), month=int(month))
 
-        product.purchased_time = time
-        product.save()
+        # purchased time save
+        if year and month:
+            time, _ = PurchasedTime.objects.get_or_create(year=int(year), month=int(month))
+            product.purchased_time = time
+            product.save()
 
         return product
 

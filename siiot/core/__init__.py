@@ -1,1 +1,1 @@
-S3_HOST = 'http://pepup-storage.s3.amazonaws.com'
+S3_HOST = 'http://siiot-media-storage.s3.amazonaws.com'

@@ -6,21 +6,32 @@ from cunsom_manage.sites import staff_panel
 from products.category.models import FirstCategory, SecondCategory, Size, Color
 from products.models import Product, ProductUploadRequest
 from products.shopping_mall.models import ShoppingMall
-from products.supplymentary.models import PurchasedReceipt
+from products.supplymentary.models import PurchasedReceipt, PurchasedTime
 
 
 class ProductStaffadmin(admin.ModelAdmin):
     list_display = ['name', 'pk', 'seller', 'upload_type', 'condition',
-                    'shopping_mall', 'sold', 'price', 'is_active', 'temp_save', 'prod_thumb_img']
+                    'shopping_mall', 'sold', 'price', 'is_active', 'temp_save', 'prod_thumb_img', 'created_at']
     list_editable = ('sold', 'is_active')
-    fields = ('seller', 'crawl_name', 'crawl_price', 'product_url', 'name', 'price', 'category', 'color', 'size',
-              'content', 'purchased_time', 'possible_upload', 'created_at'
+    fields = ('seller', 'product_url', 'crawl_name', 'crawl_price', 'name', 'price', 'category', 'color', 'size',
+              'content', 'purchased_time', 'temp_save', 'possible_upload'
               )
+    readonly_fields = ('crawl_name', 'crawl_price', )
 
     def prod_thumb_img(self, obj):
-        c_product = CrawlProduct.objects.get(obj.crawl_product_id)
+        c_product = CrawlProduct.objects.get(id=obj.crawl_product_id)
         if c_product.thumbnail_url:
             return mark_safe('<img src="%s" width=120px "/>' % c_product.thumbnail_url)
+
+    def crawl_name(self, obj):
+        c_product = CrawlProduct.objects.get(id=obj.crawl_product_id)
+        if c_product.product_name:
+            return c_product.product_name
+
+    def crawl_price(self, obj):
+        c_product = CrawlProduct.objects.get(id=obj.crawl_product_id)
+        if c_product.product_name:
+            return c_product.price
 
 
 class ProductUploadRequestStaffAdmin(admin.ModelAdmin):
@@ -68,7 +79,7 @@ class ColorStaffAdmin(admin.ModelAdmin):
 
 
 class ShoppingMallStaffAdmin(admin.ModelAdmin):
-    list_display = ['name', 'domain', 'order', 'is_active']
+    list_display = ['id', 'name', 'domain', 'order', 'is_active']
 
 
 class PurchasedReceiptStaffAdmin(admin.ModelAdmin):
@@ -96,6 +107,10 @@ class PurchasedReceiptStaffAdmin(admin.ModelAdmin):
     link.short_description = '상품 링크'
 
 
+class PurchasedTimeStaffAdmin(admin.ModelAdmin):
+    list_display = ['year', 'month', 'week' ,'date']
+
+
 staff_panel.register(Product, ProductStaffadmin)
 staff_panel.register(ProductUploadRequest, ProductUploadRequestStaffAdmin)
 staff_panel.register(FirstCategory, FirstCategoryStaffAdmin)
@@ -104,3 +119,4 @@ staff_panel.register(Size, SizeStaffAdmin)
 staff_panel.register(Color, ColorStaffAdmin)
 staff_panel.register(ShoppingMall, ShoppingMallStaffAdmin)
 staff_panel.register(PurchasedReceipt, PurchasedReceiptStaffAdmin)
+staff_panel.register(PurchasedTime, PurchasedTimeStaffAdmin)

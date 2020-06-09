@@ -82,7 +82,7 @@ class Product(models.Model):
     size_capture = models.ForeignKey(SizeCaptureImage, on_delete=models.SET_NULL, null=True, blank=True)
 
     # 구매 시기
-    purchased_time = models.OneToOneField(PurchasedTime, on_delete=models.CASCADE, null=True, blank=True)
+    purchased_time = models.ForeignKey(PurchasedTime, on_delete=models.CASCADE, null=True, blank=True)
     
     # 업로드 가능 여부 (모든 정보 입력시 True)
     possible_upload = models.BooleanField(default=False,
@@ -103,7 +103,10 @@ class Product(models.Model):
                 return '[임시 저장]' + self.name
             else:
                 return '[임시 저장 (상품명 미입력)]'
-        return self.name
+        else:
+            if self.name:
+                return '[업로드]' + self.name
+        return ''
 
     @property
     def seller_name(self):
