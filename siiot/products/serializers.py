@@ -185,4 +185,3 @@ class ProductImagesRetrieveSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImages
         fields = ('image_key', )
-

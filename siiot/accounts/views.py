@@ -176,9 +176,18 @@ class NicknameViewSet(viewsets.GenericViewSet, mixins.UpdateModelMixin):
         api: POST accounts/v1/nickname/register
         """
         user = request.user
+
         serializer = self.get_serializer(user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
+        nickname = serializer.data['nickname']
+
+        # check duplicate nickname
+        if User.objects.filter(nickname=nickname).exists():
+            return Response(status=status.HTTP_409_CONFLICT)
+
+        # nickname save
         serializer.save()
+
         return Response(status=status.HTTP_206_PARTIAL_CONTENT)
 
 
