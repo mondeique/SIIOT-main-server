@@ -56,6 +56,8 @@ class ProductViewSet(viewsets.GenericViewSet,
             return ProductSaveSerializer
         elif self.action == 'temp_data':
             return ProductTempUploadDetailInfoSerializer
+        elif self.action == 'retrieve':
+            return None
         else:
             return super(ProductViewSet, self).get_serializer_class()
 
@@ -286,13 +288,30 @@ class ProductViewSet(viewsets.GenericViewSet,
         serializer = self.get_serializer(temp_product)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @action(methods=['post'], detail=False)
+    def temp_save_cancel(self, request, *args, **kwargs):
+        """
+        이어서 작성 취소시 호출하는 api. 만약 해당 api를 호출하지 않고 유저가 처음부터 입력하다가 이탈하는 경우
+        이전에 임시저장되었던 데이터가 존재하기 때문에 문제가 발생함.
+        api: POST api/v1/product/temp_save_cancel
+
+        """
+        user = request.user
+        queryset = self.get_queryset().filter(seller=user, temp_save=True)
+        if not queryset.exists():
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        temp_product = queryset.last()
+        temp_product.temp_save = False
+        temp_product.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     def retrieve(self, request, *args, **kwargs):
         """
         상품 조회하는 api 입니다.
-        TODO? : retrieve 할 때마다 링크 유효한지 조회?
         api: GET api/v1/product/{id}
         """
-        pass
+        return super(ProductViewSet, self).retrieve(request, *args, **kwargs)
 
     def list(self, request, *args, **kwargs):
         """

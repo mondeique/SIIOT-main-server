@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.models import Permission
 from django import forms
-
+from rest_framework.authtoken.models import Token
 from accounts.nickname.models import FirstNickName, LastNickName
 from cunsom_manage.sites import superadmin_panel, staff_panel
 from cunsom_manage.tools import superadmin_register
@@ -38,7 +38,12 @@ class UserSuperadmin(admin.ModelAdmin):
         self.message_user(request, '%d개의 아이디에 staff 권한을 적용했습니다.' % rows_updated)
 
 
+class TokenStaffAdmin(admin.ModelAdmin):
+    list_display = ['key', 'user', 'created']
+
+
 superadmin_panel.register(User, UserSuperadmin)
+superadmin_panel.register(Token, TokenStaffAdmin)
 
 superadmin_register(Profile, list_display=['id', 'user'], user_fields=['user', ])
 superadmin_register(PhoneConfirm, list_display=['phone', 'certification_number', 'is_confirmed', 'temp_key', 'created_at'])

@@ -21,23 +21,28 @@ class ProductFirstSaveSerializer(serializers.ModelSerializer):
         fields = ['seller', 'upload_type', 'condition', 'shopping_mall', 'product_url']
 
 
+class CrawlDataSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = CrawlProduct
+        fields = ['thumbnail_image_url',
+                  'product_name',
+                  'int_price']
+
+
 class ProductUploadDetailInfoSerializer(serializers.ModelSerializer):
     """
     상품 업로드 과정 중 크롤링된 정보 + (option)구매내역 key를 보여주는 serializer 입니다.
     임시저장 불러올 때는 사용 x
     """
     receipt_image_url = serializers.SerializerMethodField()
-    crawl_thumbnail_image_url = serializers.SerializerMethodField()
-    crawl_product_price = serializers.SerializerMethodField()
-    crawl_product_name = serializers.SerializerMethodField()
+    crawl_data = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = ['id',
-                  'crawl_thumbnail_image_url',
+                  'crawl_data',
                   'receipt_image_url',
-                  'crawl_product_name',
-                  'crawl_product_price',
                   ]
 
     def get_receipt_image_url(self, instance):
@@ -46,17 +51,9 @@ class ProductUploadDetailInfoSerializer(serializers.ModelSerializer):
         else:
             return None
 
-    def get_crawl_thumbnail_image_url(self, instance):
-        c_product = CrawlProduct.objects.get(id=instance.crawl_product_id)
-        return c_product.thumbnail_url
-
-    def get_crawl_product_price(self, instance):
-        c_product = CrawlProduct.objects.get(id=instance.crawl_product_id)
-        return c_product.price
-
-    def get_crawl_product_name(self, instance):
-        c_product = CrawlProduct.objects.get(id=instance.crawl_product_id)
-        return c_product.product_name
+    def get_crawl_data(self, instance):
+        serializer = CrawlDataSerializer(CrawlProduct.objects.get(id=instance.crawl_product_id))
+        return serializer.data
 
 
 class ProductTempUploadDetailInfoSerializer(serializers.ModelSerializer):
@@ -69,9 +66,8 @@ class ProductTempUploadDetailInfoSerializer(serializers.ModelSerializer):
     % python class 목적에 맞게 구현하였으나, 오류가 나면 수정 필요함.
     """
     receipt_image_url = serializers.SerializerMethodField()
-    crawl_thumbnail_image_url = serializers.SerializerMethodField()
     name = serializers.SerializerMethodField()
-    crawl_product_price = serializers.SerializerMethodField()
+    crawl_data = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
     purchased_year = serializers.SerializerMethodField()
     purchased_month = serializers.SerializerMethodField()
@@ -80,19 +76,17 @@ class ProductTempUploadDetailInfoSerializer(serializers.ModelSerializer):
         model = Product
         fields = ['id',
                   'upload_type', 'condition', 'shopping_mall', 'product_url',
-                  'crawl_thumbnail_image_url',
+                  'crawl_data',
                   'receipt_image_url',
                   'images',
                   'name',
-                  'crawl_product_price',
                   'price', 'content', 'free_delivery',
                   'category', 'color', 'size', 'purchased_year', 'purchased_month'
                   ]
 
-    def crawl_data(self, instance):
-        crawl_id = instance.crawl_product_id
-        self.c_product = CrawlProduct.objects.get(id=crawl_id)
-        # return CrawlProduct.objects.get(id=crawl_id)
+    def get_crawl_data(self, instance):
+        serializer = CrawlDataSerializer(CrawlProduct.objects.get(id=instance.crawl_product_id))
+        return serializer.data
 
     def get_receipt_image_url(self, instance):
         if instance.receipt:
@@ -106,18 +100,10 @@ class ProductTempUploadDetailInfoSerializer(serializers.ModelSerializer):
         images = instance.images.all()
         return ProductImagesRetrieveSerializer(images, many=True).data
 
-    def get_crawl_thumbnail_image_url(self, instance):
-        # c_product = self.crawl_data(instance)
-        self.crawl_data(instance)
-        return self.c_product.thumbnail_image_url
-
     def get_name(self, instance):
         if instance.name:
             return instance.name
-        return self.c_product.product_name
-
-    def get_crawl_product_price(self, instance):
-        return self.c_product.price
+        return CrawlProduct.objects.get(id=instance.crawl_product_id).product_name
 
     def get_purchased_month(self, instance):
         if hasattr(instance, 'purchased_time'):
@@ -175,3 +161,10 @@ class ProductImagesRetrieveSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImages
         fields = ('image_key', )
+
+
+class ProductRetrieveSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Product
+        fields = ('')

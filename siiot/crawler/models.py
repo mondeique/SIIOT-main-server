@@ -24,6 +24,12 @@ class CrawlProduct(models.Model):
         url = s3_host + key
         return url
 
+    @property
+    def int_price(self):
+        price = self.price
+        int_price = int(''.join(x for x in price if x.isdigit()))
+        return int_price
+
 
 class CrawlDetailImage(models.Model):
     product = models.ForeignKey('CrawlProduct', models.DO_NOTHING, related_name="bag_images")
