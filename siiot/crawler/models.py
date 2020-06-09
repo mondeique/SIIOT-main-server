@@ -1,4 +1,5 @@
 from django.db import models
+from crawler import CRAWLER_S3_HOST
 
 
 class CrawlProduct(models.Model):
@@ -16,6 +17,13 @@ class CrawlProduct(models.Model):
         managed = False
         db_table = 'crawler_crawlproduct'
 
+    @property
+    def thumbnail_image_url(self):
+        s3_host = CRAWLER_S3_HOST
+        key = self.thumbnail_image
+        url = s3_host + key
+        return url
+
 
 class CrawlDetailImage(models.Model):
     product = models.ForeignKey('CrawlProduct', models.DO_NOTHING, related_name="bag_images")
@@ -26,4 +34,9 @@ class CrawlDetailImage(models.Model):
         managed = False
         db_table = 'crawler_crawldetailimage'
 
-
+    @property
+    def detail_image_url(self):
+        s3_host = CRAWLER_S3_HOST
+        key = self.detail_image
+        url = s3_host + key
+        return url

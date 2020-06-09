@@ -2,7 +2,7 @@ import uuid
 
 
 from django.db import models
-from . import S3_HOST
+from core import S3_HOST
 
 
 """

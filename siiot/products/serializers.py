@@ -76,16 +76,10 @@ class ProductTempUploadDetailInfoSerializer(serializers.ModelSerializer):
     purchased_year = serializers.SerializerMethodField()
     purchased_month = serializers.SerializerMethodField()
 
-    def __init__(self):
-        super(ProductTempUploadDetailInfoSerializer, self).__init__()
-        self.obj = None
-        self.crawl_id = None
-        self.c_product = None
-
     class Meta:
         model = Product
         fields = ['id',
-                  'upload_type', 'condition', 'shopping_mall', 'product_url'
+                  'upload_type', 'condition', 'shopping_mall', 'product_url',
                   'crawl_thumbnail_image_url',
                   'receipt_image_url',
                   'images',
@@ -95,15 +89,13 @@ class ProductTempUploadDetailInfoSerializer(serializers.ModelSerializer):
                   'category', 'color', 'size', 'purchased_year', 'purchased_month'
                   ]
 
-    def set_obj(self, instance):
-        self.obj = instance
-
-    def crawl_data(self):
-        self.crawl_id = self.obj.crawl_product_id
-        self.c_product = CrawlProduct.objects.get(id=self.crawl_id)
+    def crawl_data(self, instance):
+        crawl_id = instance.crawl_product_id
+        self.c_product = CrawlProduct.objects.get(id=crawl_id)
+        # return CrawlProduct.objects.get(id=crawl_id)
 
     def get_receipt_image_url(self, instance):
-        if hasattr(instance, 'receipt'):
+        if instance.receipt:
             return instance.receipt.image_url
         else:
             return None
@@ -115,30 +107,28 @@ class ProductTempUploadDetailInfoSerializer(serializers.ModelSerializer):
         return ProductImagesRetrieveSerializer(images, many=True).data
 
     def get_crawl_thumbnail_image_url(self, instance):
-        self.set_obj(instance)
-        self.crawl_data()
-        return self.c_product.thumbnail_url
+        # c_product = self.crawl_data(instance)
+        self.crawl_data(instance)
+        return self.c_product.thumbnail_image_url
 
     def get_name(self, instance):
-        self.set_obj(instance)
-        self.crawl_data()
-        if self.obj.name:
-            return self.obj.name
+        if instance.name:
+            return instance.name
         return self.c_product.product_name
 
-    def get_crawl_product_price(self):
+    def get_crawl_product_price(self, instance):
         return self.c_product.price
 
-    def get_purchased_month(self):
-        if hasattr(self.obj, 'purchased_time'):
-            time = self.obj.purchased_time
+    def get_purchased_month(self, instance):
+        if hasattr(instance, 'purchased_time'):
+            time = instance.purchased_time
             month = time.month
             return month
         return None
 
-    def get_purchased_year(self):
-        if hasattr(self.obj, 'purchased_time'):
-            time = self.obj.purchased_time
+    def get_purchased_year(self, instance):
+        if hasattr(instance, 'purchased_time'):
+            time = instance.purchased_time
             year = time.year
             return year
         return None
