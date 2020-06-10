@@ -3,7 +3,7 @@ from django.utils.timesince import timesince
 from dateutil.relativedelta import relativedelta
 
 
-def get_age(obj):
+def get_age_fun(obj):
     now = datetime.datetime.now()
     created_at = obj.created_at
     try:
@@ -27,7 +27,7 @@ def get_age(obj):
     elif created_at > now - relativedelta(months=1):
         return '{}주 전'.format(timesince(created_at).split(', ')[0].split()[0])
 
-    # 세달이내
+    # 세달미만
     elif created_at > now - relativedelta(months=3):
         return'{}달 전'.format(timesince(created_at).split(', ')[0].split()[0])
 

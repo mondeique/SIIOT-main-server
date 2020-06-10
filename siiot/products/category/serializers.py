@@ -5,10 +5,11 @@ from products.shopping_mall.models import ShoppingMall
 
 
 class FirstCategorySerializer(serializers.ModelSerializer):
+    child = serializers.SerializerMethodField()
+
     class Meta:
-        class Meta:
-            model = FirstCategory
-            fields = ['id', 'name', 'child']
+        model = FirstCategory
+        fields = ['id', 'name', 'child']
 
     def get_child(self, obj):
         if obj.second_categories.exists():
@@ -40,4 +41,4 @@ class SizeSerializer(serializers.ModelSerializer):
 class ColorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Color
-        fields = ['color', 'image']
+        fields = ['id', 'color', 'image']

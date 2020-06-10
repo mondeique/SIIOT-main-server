@@ -57,6 +57,7 @@ SECONDS_APPS = [
     'products.category',
     'products.shopping_mall',
     'products.supplymentary',
+    'products.reply',
     'products',
     'crawler'
     # 'api',
@@ -195,7 +196,7 @@ REST_FRAMEWORK = {
         # 'rest_framework.authentication.SessionAuthentication',
         'rest_framework_jwt.authentication.JSONWebTokenAuthentication',
     ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'DEFAULT_PAGINATION_CLASS': 'core.pagination.SiiotPagination',
     'PAGE_SIZE': 51
 }
 

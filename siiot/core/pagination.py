@@ -17,7 +17,7 @@ def _reverse_ordering(ordering_tuple):
     return tuple([invert(item) for item in ordering_tuple])
 
 
-class PepupPagination(PageNumberPagination):
+class SiiotPagination(PageNumberPagination):
     page_size = 50  # 한페이지에 담기는 개수
 
     def get_next_page_num(self):
@@ -41,7 +41,7 @@ class PepupPagination(PageNumberPagination):
          ]))
 
 
-class PepupCursorPagination(CursorPagination):
+class SiiotCursorPagination(CursorPagination):
     # page_size = ...
     # ordering = ...
 
@@ -70,7 +70,7 @@ class PepupCursorPagination(CursorPagination):
 
 def paginate(page_size=None, ordering=None):
 
-    class _Pagination(PepupCursorPagination):
+    class _Pagination(SiiotCursorPagination):
         def __init__(self):
             self.page_size = page_size
             self.ordering = ordering
