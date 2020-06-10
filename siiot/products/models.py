@@ -52,7 +52,7 @@ class Product(models.Model):
                                     help_text="링크 유효성 검증을 위해 사용합니다. 링크가 내려간 경우 False,"
                                               "(나중)링크 없는 상품 업로드시 False로서, False 인 경우 임시 페이지를 보여줍니다.")
 
-    temp_save = models.BooleanField(default=True, help_text="임시저장 중인 상품을 확인하기 위해 만들었습니다. upload complete = True")
+    temp_save = models.BooleanField(default=True, help_text="임시저장 중인 상품을 확인하기 위해 만들었습니다. upload complete = False")
 
     # crawl product id
     crawl_product_id = models.IntegerField(null=True, blank=True)

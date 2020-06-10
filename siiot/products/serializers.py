@@ -11,6 +11,7 @@ from django.utils import timezone
 from crawler.models import CrawlProduct
 from products.models import Product, ProductImages
 from products.supplymentary.models import PurchasedReceipt, PurchasedTime
+from products.utils import check_product_url
 
 
 class ProductFirstSaveSerializer(serializers.ModelSerializer):
@@ -22,7 +23,9 @@ class ProductFirstSaveSerializer(serializers.ModelSerializer):
 
 
 class CrawlDataSerializer(serializers.ModelSerializer):
-
+    """
+    크롤링 데이터를 다루는 serializer 입니다.
+    """
     class Meta:
         model = CrawlProduct
         fields = ['thumbnail_image_url',
@@ -30,13 +33,130 @@ class CrawlDataSerializer(serializers.ModelSerializer):
                   'int_price']
 
 
+class ProductRetrieveSerializer(serializers.ModelSerializer):
+    """
+    상품 상세페이지 조회에 사용하는 serializer 입니다.
+    """
+    crawl_data = serializers.SerializerMethodField()
+    receipt_image_url = serializers.SerializerMethodField()
+    name = serializers.SerializerMethodField()
+    discount_rate = serializers.SerializerMethodField()
+    is_receipt = serializers.SerializerMethodField()
+
+    images = serializers.SerializerMethodField()
+
+    category = serializers.SerializerMethodField() # category 어떻게 보여줄지?
+    size = serializers.SerializerMethodField() # size name!
+    size_capture_image = serializers.SerializerMethodField() # 없으면 None
+    purchased_year = serializers.SerializerMethodField()
+    purchased_month = serializers.SerializerMethodField()
+
+    age = serializers.SerializerMethodField() #ex: 3 days ago
+
+    # 댓글 serializer TODO
+    # delivery_policy =
+    # store (thumbnail, nickname, star, id) -> storeserializer로
+
+    other_seller_products = serializers.SerializerMethodField()  # def 안에 simple product serializer 활용하여 data return
+    related_products = serializers.SerializerMethodField()  # "
+
+    class Meta:
+        model = Product
+        fields = ['id',
+                  'possible_upload',
+                  'sold',
+                  'valid_url', #
+                  'age', #
+                  'crawl_data', #
+                  'is_receipt', #
+                  'shopping_mall',  # 쇼핑몰 로고?
+                  'name', 'price', 'discount_rate', #
+                  'free_delivery',
+                  'content',
+                  'images', #
+                  'receipt_image_url', #
+                  'category', #
+                  'size', #
+                  'color',
+                  'purchased_year', #
+                  'purchased_month', #
+                  'product_url',
+                  # '댓글', #
+                  # '배송비', #
+                  # '스토어', #
+
+                  '']
+
+    def get_valid_url(self, obj):
+        url = obj.product_url
+        valid_url = check_product_url(url)
+        if valid_url:
+            return True
+        return False
+
+    def get_age(self, obj):
+        return None
+
+    def get_crawl_data(self, obj):
+        serializer = CrawlDataSerializer(CrawlProduct.objects.get(id=obj.crawl_product_id))
+        return serializer.data
+
+    def get_is_receipt(self, obj):
+        if obj.receipt:
+            return True
+        return False
+
+    def get_discount_rate(self, obj):
+        crawl_price = CrawlProduct.objects.get(id=obj.crawl_product_id)
+        price = obj.price
+        rate = abs(crawl_price - price)/crawl_price * 100
+        if crawl_price - price > 0:
+            return rate
+        return None
+
+    def get_images(self, obj):
+        if not obj.images.exists():
+            return []
+        images = obj.images.all()
+        return ProductImagesRetrieveSerializer(images, many=True).data
+
+    def get_receipt_image_url(self, obj):
+        if obj.receipt:
+            return obj.receipt.image_url
+        else:
+            return None
+
+    def get_category(self, obj):
+        return None
+
+    def get_size(self, obj):
+        return obj.size.size_name
+
+    def get_purchased_month(self, obj):
+        if obj.purchased_time:
+            time = obj.purchased_time
+            month = time.month
+            return month
+        return None
+
+    def get_purchased_year(self, obj):
+        if obj.purchased_time:
+            time = obj.purchased_time
+            year = time.year
+            return year
+        return None
+
+    def get_reply(self, obj):
+        pass
+
+
 class ProductUploadDetailInfoSerializer(serializers.ModelSerializer):
     """
     상품 업로드 과정 중 크롤링된 정보 + (option)구매내역 key를 보여주는 serializer 입니다.
     임시저장 불러올 때는 사용 x
     """
-    receipt_image_url = serializers.SerializerMethodField()
     crawl_data = serializers.SerializerMethodField()
+    receipt_image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -45,14 +165,14 @@ class ProductUploadDetailInfoSerializer(serializers.ModelSerializer):
                   'receipt_image_url',
                   ]
 
-    def get_receipt_image_url(self, instance):
-        if instance.receipt:
-            return instance.receipt.image_url
+    def get_receipt_image_url(self, obj):
+        if obj.receipt:
+            return obj.receipt.image_url
         else:
             return None
 
-    def get_crawl_data(self, instance):
-        serializer = CrawlDataSerializer(CrawlProduct.objects.get(id=instance.crawl_product_id))
+    def get_crawl_data(self, obj):
+        serializer = CrawlDataSerializer(CrawlProduct.objects.get(id=obj.crawl_product_id))
         return serializer.data
 
 
@@ -60,10 +180,9 @@ class ProductTempUploadDetailInfoSerializer(serializers.ModelSerializer):
     """
     아마도 임시저장 불러올 때 사용할 것 같음. UploadDetail과 합쳐서 한번에 쓸 수 있었는데 분리한 이유는
     임시저장의 경우 업로드 타입에 따라 아마 client에서 action을 다르게 해야 하기 떄문에 일단 구분함
-    * 참고 : crawl_product_name 대신 name으로 통합함: name 작성했던게 있으면 name, 없으면 crawl product name
+    * 참고 :name 작성했던게 있으면 name, 없으면 crawl product name (crawl data 안의 product name은 사용 x)
     
     ** category, purchased_time 같이 다른 모델 참고하는 필드는 int(id) 주는데 클라에서 어떻게 할 건지 얘기필요
-    % python class 목적에 맞게 구현하였으나, 오류가 나면 수정 필요함.
     """
     receipt_image_url = serializers.SerializerMethodField()
     name = serializers.SerializerMethodField()
@@ -84,37 +203,37 @@ class ProductTempUploadDetailInfoSerializer(serializers.ModelSerializer):
                   'category', 'color', 'size', 'purchased_year', 'purchased_month'
                   ]
 
-    def get_crawl_data(self, instance):
-        serializer = CrawlDataSerializer(CrawlProduct.objects.get(id=instance.crawl_product_id))
+    def get_crawl_data(self, obj):
+        serializer = CrawlDataSerializer(CrawlProduct.objects.get(id=obj.crawl_product_id))
         return serializer.data
 
-    def get_receipt_image_url(self, instance):
-        if instance.receipt:
-            return instance.receipt.image_url
+    def get_receipt_image_url(self, obj):
+        if obj.receipt:
+            return obj.receipt.image_url
         else:
             return None
 
-    def get_images(self, instance):
-        if not instance.images.exists():
+    def get_images(self, obj):
+        if not obj.images.exists():
             return []
-        images = instance.images.all()
+        images = obj.images.all()
         return ProductImagesRetrieveSerializer(images, many=True).data
 
-    def get_name(self, instance):
-        if instance.name:
-            return instance.name
-        return CrawlProduct.objects.get(id=instance.crawl_product_id).product_name
+    def get_name(self, obj):
+        if obj.name:
+            return obj.name
+        return CrawlProduct.objects.get(id=obj.crawl_product_id).product_name
 
-    def get_purchased_month(self, instance):
-        if hasattr(instance, 'purchased_time'):
-            time = instance.purchased_time
+    def get_purchased_month(self, obj):
+        if obj.purchased_time:
+            time = obj.purchased_time
             month = time.month
             return month
         return None
 
-    def get_purchased_year(self, instance):
-        if hasattr(instance, 'purchased_time'):
-            time = instance.purchased_time
+    def get_purchased_year(self, obj):
+        if obj.purchased_time:
+            time = obj.purchased_time
             year = time.year
             return year
         return None
@@ -129,12 +248,14 @@ class ProductSaveSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ['name', 'price', 'content', 'free_delivery',
-                  'category', 'color', 'size', 'purchased_time', 'possible_upload', 'temp_save']
+                  'category', 'color', 'size', 'purchased_time', 'possible_upload',
+                  'temp_save' # view 에서 넘겨줌
+                  ]
 
-    def update(self, instance, validated_data):
+    def update(self, obj, validated_data):
         year = validated_data.pop('purchased_year', None)
         month = validated_data.pop('purchased_month', None)
-        product = super(ProductSaveSerializer, self).update(instance, validated_data)
+        product = super(ProductSaveSerializer, self).update(obj, validated_data)
 
         # purchased time save
         if year and month:
@@ -161,10 +282,3 @@ class ProductImagesRetrieveSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImages
         fields = ('image_key', )
-
-
-class ProductRetrieveSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Product
-        fields = ('')

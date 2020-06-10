@@ -1,8 +1,5 @@
 import uuid
 
-import requests
-from django.core.exceptions import ObjectDoesNotExist
-from django.conf import settings
 from django.db import transaction
 from django.http import Http404
 from django.utils import timezone
@@ -11,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework import viewsets, mixins
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 
 # Create your views here.
 from crawler.models import CrawlProduct
@@ -25,8 +22,7 @@ from products.shopping_mall.models import ShoppingMall
 from products.shopping_mall.serializers import ShoppingMallSerializer
 from products.slack import slack_message
 from products.supplymentary.serializers import ShoppingMallDemandSerializer
-from products.utils import crawl_request
-import cfscrape
+from products.utils import crawl_request, check_product_url
 
 
 class ProductViewSet(viewsets.GenericViewSet,
@@ -72,10 +68,9 @@ class ProductViewSet(viewsets.GenericViewSet,
         """
         data = request.data
         url = data.get('product_url')
-        scraper = cfscrape.create_scraper()
-        r = scraper.get(url)
+        valid_url = check_product_url(url)
 
-        if r.status_code == 200:
+        if valid_url:
             return Response(status=status.HTTP_200_OK)
         else:
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -91,7 +86,7 @@ class ProductViewSet(viewsets.GenericViewSet,
 
         data : "upload_type(int)", "condition(int)", "shopping_mall(int)", "product_url(str)"
         
-        :return {"id", "crawl_thumbnail_image_url", 
+        :return {"id",
                  "receipt_image_url(optional), <- 구매내역 첨부 후 상세정보 입력할 때만 data 존재
                  "crawl_data: {'thumbnail_image_url': ~~, "product_name":~~, "int_price":~~ }",
                  }
@@ -208,64 +203,46 @@ class ProductViewSet(viewsets.GenericViewSet,
     @action(methods=['put'], detail=True)
     def complete(self, request, *args, **kwargs):
         """
-        직접 업로드 시 상품 업로드를 완료했을 때 호출되는 api 입니다.
+        상품 업로드 완료시 호출되는 api 입니다.
         update 에 보냈던 데이터 형식과 동일하게 보내주어야 합니다(최종 저장)
+        구매내역 없이 직접입력 하는경우 possible_upload = True, 구매내역 첨부한 경우 slack으로 알림을 보냅니다.
         최종저장시 임시저장 필드를 False로 바꾸어 조회되지 않도록 저장합니다.
         api : PUT api/v1/product/{id}/complete
 
         data : update()에서 사용했던 데이터와 동일
         """
         data = request.data.copy()
-        data['possible_upload'] = True
-        data['temp_save'] = False
         year = data.pop('purchased_year', None)
         month = data.pop('purchased_month', None)
         obj = self.get_object()
+
         serializer = self.get_serializer(obj, data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
 
         # purchased time 을 int 로 받기 위해 valid 이후 data 추가함. (TODO: better code!)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        data = serializer.validated_data
-        data.update({'purchased_year': year, 'purchased_month': month})
-        serializer.update(obj, data)
+        if obj.receipt:
+            # 구매내역이 있는 경우
+            data = serializer.validated_data
+            data.update({'purchased_year': year, 'purchased_month': month, 'possible_upload': True, 'temp_save': False})
 
-        return Response(status=status.HTTP_206_PARTIAL_CONTENT)
+            product = serializer.update(obj, data)
 
-    @transaction.atomic
-    @action(methods=['put'], detail=True)
-    def complete_with_receipt(self, request, *args, **kwargs):
-        """
-        구매내역 첨부로 업로드 완성시 호출되는 api 입니다.
-        저장시 임시저장 필드를 False로 바꾸어 조회되지 않도록 저장합니다.
-        update 와 동일하게 저장하며 추가적으로 slack에 연동하여 알림을 줍니다.
-        api : PUT api/v1/product/{id}/complete_with_receipt
+            upload_req = ProductUploadRequest.objects.create(product=product)
+            left_count = ProductUploadRequest.objects.filter(is_done=False).count()
+            slack_message("[업로드 요청] \n [id:{}] -상품명:{}, -신청자:{} || 남은개수 {} ({})".
+                          format(upload_req.id, product.name, request.user, left_count,
+                                 timezone.now().strftime('%y/%m/%d %H:%M')),
+                          'upload_request')
 
-        data : update()에서 사용했던 데이터와 동일
-        """
-        data = request.data.copy()
-        data['temp_save'] = False
-        year = data.pop('purchased_year', None)
-        month = data.pop('purchased_month', None)
-        obj = self.get_object()
-        serializer = self.get_serializer(obj, data=data, partial=True)
+            return Response(status=status.HTTP_206_PARTIAL_CONTENT)
 
-        # purchased time 을 int 로 받기 위해 valid 이후 data 추가함. (TODO: better code!)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        data = serializer.validated_data
-        data.update({'purchased_year': year, 'purchased_month': month})
-        product = serializer.update(obj, data)
+        else:
+            # 구매내역이 없는 경우
+            data = serializer.validated_data
+            data.update({'purchased_year': year, 'purchased_month': month,'temp_save': False})
+            serializer.update(obj, data)
 
-        # slack message
-        upload_req = ProductUploadRequest.objects.create(product=product)
-        left_count = ProductUploadRequest.objects.filter(is_done=False).count()
-        slack_message("[업로드 요청] \n [id:{}] -상품명:{}, -신청자:{} || 남은개수 {} ({})".
-                      format(upload_req.id, product.name, request.user, left_count,
-                             timezone.now().strftime('%y/%m/%d %H:%M')),
-                      'upload_request')
-
-        return Response(status=status.HTTP_206_PARTIAL_CONTENT)
+            return Response(status=status.HTTP_206_PARTIAL_CONTENT)
 
     @action(methods=['get'], detail=False)
     def temp_data(self, request, *args, **kwargs):
