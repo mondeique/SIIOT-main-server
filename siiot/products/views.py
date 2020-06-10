@@ -17,7 +17,7 @@ from crawler.models import CrawlProduct
 from products.category.models import FirstCategory, SecondCategory, Size, Color
 from products.category.serializers import FirstCategorySerializer, SecondCategorySerializer, SizeSerializer, \
     ColorSerializer
-from products.models import Product, ProductImages, ProductUploadRequest
+from products.models import Product, ProductImages, ProductUploadRequest, ProductViews
 from products.serializers import ProductFirstSaveSerializer, ReceiptSaveSerializer, ProductSaveSerializer, \
     ProductImageSaveSerializer, ProductUploadDetailInfoSerializer, ProductTempUploadDetailInfoSerializer, \
     ProductRetrieveSerializer
@@ -294,6 +294,11 @@ class ProductViewSet(viewsets.GenericViewSet,
 
         :return serializer 참고
         """
+        product = self.get_object()
+        views, _ = ProductViews.objects.get_or_create(product=product)
+        views.count = views.count + 1
+        views.save()
+
         return super(ProductViewSet, self).retrieve(request, *args, **kwargs)
 
     def list(self, request, *args, **kwargs):

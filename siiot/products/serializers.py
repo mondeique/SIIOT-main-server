@@ -44,6 +44,7 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
     # name = serializers.SerializerMethodField()
     discount_rate = serializers.SerializerMethodField()
     is_receipt = serializers.SerializerMethodField()
+    views = serializers.SerializerMethodField()
 
     images = serializers.SerializerMethodField()
 
@@ -68,6 +69,7 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
                   'sold',
                   'valid_url', #
                   'age', #
+                  'views', #
                   'crawl_data', #
                   'is_receipt', #
                   'shopping_mall',  # 쇼핑몰 로고?
@@ -98,6 +100,11 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
 
     def get_age(self, obj):
         return get_age_fun(obj)
+
+    def get_views(self, obj):
+        if hasattr(obj, 'views'):
+            return obj.views.view_counts
+        return 0
 
     def get_crawl_data(self, obj):
         serializer = CrawlDataSerializer(CrawlProduct.objects.get(id=obj.crawl_product_id))
