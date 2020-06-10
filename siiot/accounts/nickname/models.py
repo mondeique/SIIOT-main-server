@@ -3,7 +3,7 @@ from django.db import models
 
 class FirstNickName(models.Model):
     """
-    랜덤 닉네임 생성을 위해 만들었습니다.
+    랜덤 닉네임 생성을 위해 만들었습니다. / 형용사
     """
     first_nickname = models.CharField(max_length=30, unique=True)
     is_active = models.BooleanField(default=True)
@@ -16,7 +16,7 @@ class FirstNickName(models.Model):
 
 class LastNickName(models.Model):
     """
-    랜덤 닉네임 생성을 위해 만들었습니다.
+    랜덤 닉네임 생성을 위해 만들었습니다. / 명사
     """
     last_nickname = models.CharField(max_length=30, unique=True)
     is_active = models.BooleanField(default=True)

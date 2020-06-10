@@ -62,7 +62,7 @@ class ProductViewSet(viewsets.GenericViewSet,
 
         """
         링크 입력 후 '확인' 버튼을 누를 때 호출되는 api 입니다.
-        api : POST api/v1/product/check_url
+        api : POST api/v1/product/check_url/
 
         data : "product_url"
         """
@@ -82,7 +82,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         처음 호출하기 때문에 create를 활용하여 설정하였습니다.
         * 이 api 가 호출되는 시점에 crawling server에 요청을 보냅니다.
         * 특히 새로 등록할 때 호출되기 때문에 이전에 임시저장했던 상품은 임시저장 해제합니다.
-        api : POST api/v1/product
+        api : POST api/v1/product/
 
         data : "upload_type(int)", "condition(int)", "shopping_mall(int)", "product_url(str)"
         
@@ -129,7 +129,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         """
         구매내역 첨부시 사용하는 api 입니다.
         첨부 이후 상세정보 입력 페이지로 이동하기 때문에 필요한 정보들과 함께 return 합니다.
-        api : PUT api/v1/product/{id}/receipt
+        api : PUT api/v1/product/{id}/receipt/
 
         data : "receipt_image_key"
         
@@ -151,7 +151,7 @@ class ProductViewSet(viewsets.GenericViewSet,
     def images(self, request, *args, **kwargs):
         """
         상품 이미지 저장 시 사용하는 api 입니다. * 저장하는 (유저가 선택한) 사진의 uuid 만 주어야 합니다.
-        api : PUT api/v1/product/{id}/images
+        api : PUT api/v1/product/{id}/images/
 
         data : "image_key(list)"
         """
@@ -207,7 +207,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         update 에 보냈던 데이터 형식과 동일하게 보내주어야 합니다(최종 저장)
         구매내역 없이 직접입력 하는경우 possible_upload = True, 구매내역 첨부한 경우 slack으로 알림을 보냅니다.
         최종저장시 임시저장 필드를 False로 바꾸어 조회되지 않도록 저장합니다.
-        api : PUT api/v1/product/{id}/complete
+        api : PUT api/v1/product/{id}/complete/
 
         data : update()에서 사용했던 데이터와 동일
         """
@@ -239,7 +239,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         else:
             # 구매내역이 없는 경우
             data = serializer.validated_data
-            data.update({'purchased_year': year, 'purchased_month': month,'temp_save': False})
+            data.update({'purchased_year': year, 'purchased_month': month,  'temp_save': False})
             serializer.update(obj, data)
 
             return Response(status=status.HTTP_206_PARTIAL_CONTENT)
@@ -251,7 +251,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         상품 업로드 과정에 전송했던 모든 데이터를 한번에 return 합니다.
         특히, 업로드시 처음 입력하는 upload_type, 구매내역 등과 같은 변수도 함께 return 하여 유저가 뒤로가기
         버튼을 눌렀을 때 클라에서 참고할 수 있도록 합니다. (TODO: 개발구현 논의필요)
-        api : GET api/v1/product/temp_data
+        api : GET api/v1/product/temp_data/
 
         :return serializer 참고
         """
@@ -270,7 +270,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         """
         이어서 작성 취소시 호출하는 api. 만약 해당 api를 호출하지 않고 유저가 처음부터 입력하다가 이탈하는 경우
         이전에 임시저장되었던 데이터가 존재하기 때문에 문제가 발생함.
-        api: POST api/v1/product/temp_save_cancel
+        api: POST api/v1/product/temp_save_cancel/
 
         """
         user = request.user
@@ -285,8 +285,8 @@ class ProductViewSet(viewsets.GenericViewSet,
 
     def retrieve(self, request, *args, **kwargs):
         """
-        상품 조회하는 api 입니다.
-        api: GET api/v1/product/{id}
+        상품 조회하는 api 입니다. 호출시마다 조회수가 증가합니다.
+        api: GET api/v1/product/{id}/
         """
         return super(ProductViewSet, self).retrieve(request, *args, **kwargs)
 
@@ -294,7 +294,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         """
         상품 list 조회하는 api 입니다.
         추가할 것) 판매자 상품인지 아닌지 등과 같은 부가정보 (기획필수)
-        api: GET api/v1/product
+        api: GET api/v1/product/
         """
         return super(ProductViewSet, self).list(request, *args, **kwargs)
 
@@ -307,7 +307,7 @@ class ShoppingMallViewSet(viewsets.GenericViewSet):
     def list(self, request, *args, **kwargs):
         """
         쇼핑몰 리스트 요청하는 api 입니다.
-        api: GET ap1/v1/shopping_mall
+        api: GET ap1/v1/shopping_mall/
         """
         queryset = self.get_queryset().order_by('order')
         serializer = self.get_serializer(queryset, many=True)
@@ -317,7 +317,7 @@ class ShoppingMallViewSet(viewsets.GenericViewSet):
     def searching(self, request, *args, **kwargs):
         """
         shopping mall 검색을 할 때 각 글자에 해당하는 쇼핑몰을 조회하는 api 입니다.
-        api: POST api/v1/shopping_mall/searching
+        api: POST api/v1/shopping_mall/searching/
         """
         keyword = request.data['keyword']
         if keyword:
@@ -335,7 +335,7 @@ class ShoppingMallViewSet(viewsets.GenericViewSet):
     def demand(self, request, *args, **kwargs):
         """
         쇼핑몰 추가 요청하는 api 입니다.
-        api: POST api/v1/shopping_mall/demand
+        api: POST api/v1/shopping_mall/demand/
         """
         serializer = ShoppingMallDemandSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -378,7 +378,7 @@ class ProductCategoryViewSet(viewsets.GenericViewSet):
     def first_category(self, request, *args, **kwargs):
         """
         first_category 를 조회하는 api 입니다.
-        api: GET api/v1/category/first_category
+        api: GET api/v1/category/first_category/
 
         :return serialzier 참고
         """
@@ -390,7 +390,7 @@ class ProductCategoryViewSet(viewsets.GenericViewSet):
     def second_category(self, request, *args, **kwargs):
         """
         second_category 를 조회하는 api 입니다.
-        api: GET api/v1/category/{id}/second_category
+        api: GET api/v1/category/{id}/second_category/
         *id 는 first category
         :return serialzier 참고
         """
@@ -407,7 +407,7 @@ class ProductCategoryViewSet(viewsets.GenericViewSet):
     def size(self, request, *args, **kwargs):
         """
         size 를 조회하는 api 입니다.
-        api: GET api/v1/category/{id}/size
+        api: GET api/v1/category/{id}/size/
         *id 는 first category
         :return serialzier 참고
         """
@@ -439,7 +439,7 @@ class S3ImageUploadViewSet(viewsets.GenericViewSet):
     def receipt_key(self, request):
         """
         구매내역 첨부 시 uuid를 발급받는 api 입니다. (TODO : presigned url)
-        api: GET ap1/v1/s3/receipt_key
+        api: GET ap1/v1/s3/receipt_key/
 
         """
         ext = request.GET.get('ext', 'jpg')
@@ -456,7 +456,7 @@ class S3ImageUploadViewSet(viewsets.GenericViewSet):
     def image_key_list(self, request):
         """
         이미지 첨부시 uuid list를 발급받는 api 입니다. (TODO : presigned url)
-        api: POST api/v1/s3/image_key_list
+        api: POST api/v1/s3/image_key_list/
         data : {'count' : int}
 
         """

@@ -1,7 +1,7 @@
 from django.contrib.auth import (
     login as django_login,
-    logout as django_logout
-)
+    logout as django_logout,
+    get_user_model)
 from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
 
@@ -41,7 +41,7 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         sms 인증이 완료될 때 return 된 phone, temp_key에 + password 을 입력받습니다.
         temp_key를 활용하여 외부 api로 signup을 방지하였습니다.
         nickname의 경우 자동으로 random nickname이 부여되고, 회원가입 이후 nickname을 입력하면 update가 됩니다.
-        api: POST accounts/v1/signup
+        api: POST accounts/v1/signup/
 
         :return:
         400 : bad request
@@ -66,10 +66,8 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        # if user set nickname
-
         # default random nickname
-        user.nickname = set_random_nickname()
+        user.nickname = set_random_nickname(get_user_model())
         user.save()
 
         token = create_token(self.token_model, user)
@@ -85,7 +83,7 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
     @action(methods=['post'], detail=False)
     def login(self, request, *args, **kwargs):
         """
-        api: POST accounts/v1/login
+        api: POST accounts/v1/login/
 
         """
         try:
@@ -101,7 +99,7 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
     @action(methods=['post'], detail=False)
     def logout(self, request):
         """
-        api: POST accounts/v1/logout
+        api: POST accounts/v1/logout/
 
         :return: code, status
         """
@@ -125,7 +123,7 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         temp_key를 활용하여 외부 api로 signup을 방지하였습니다.
         nickname의 경우 자동으로 random nickname이 부여되고, 회원가입 이후 nickname을 입력하면 update가 됩니다.
 
-        api: POST accounts/v1/reset_pw
+        api: POST accounts/v1/reset_pw/
 
         :return:
         400 : bad request
@@ -173,7 +171,7 @@ class NicknameViewSet(viewsets.GenericViewSet, mixins.UpdateModelMixin):
         User 회원가입시 nickname을 자동 생성 한 이후, NicknameViewSet 을 사용하여 nickname을 update 합니다.
         My page 에서 닉네임 업데이트시에도 사용합니다.
 
-        api: POST accounts/v1/nickname/register
+        api: POST accounts/v1/nickname/register/
         """
         user = request.user
 
@@ -190,6 +188,15 @@ class NicknameViewSet(viewsets.GenericViewSet, mixins.UpdateModelMixin):
 
         return Response(status=status.HTTP_206_PARTIAL_CONTENT)
 
+    @action(['get'], detail=False, permission_classes=[AllowAny])
+    def random(self, request, *args, **kwargs):
+        """
+        [PEPUP-226] 2020.06.11
+        api: GET accounts/v1/nickname/random/
+        """
+        nickname = set_random_nickname(get_user_model())
+        return Response({'nickname': nickname})
+
 
 class SMSViewSet(viewsets.GenericViewSet):
     permission_classes = [AllowAny, ]
@@ -201,7 +208,7 @@ class SMSViewSet(viewsets.GenericViewSet):
         회원가입 시 인증번호를 받는 api 입니다.
         body 에 phone 을 담아 보내주기만 하면 됩니다.
 
-        api: POST accounts/v1/send_sms/signup
+        api: POST accounts/v1/send_sms/signup/
 
         :return : temp_key (이를 활용하여 재발급에 사용)
         400 : bad request -> phone 을 보내지 않았을 때
@@ -235,7 +242,7 @@ class SMSViewSet(viewsets.GenericViewSet):
         비밀번호 재설정시 인증번호를 받는 api 입니다.
         body 에 phone 을 담아 보내주기만 하면 됩니다.
 
-        api: POST accounts/v1/send_sms/reset_pw
+        api: POST accounts/v1/send_sms/reset_pw/
 
         :return : temp_key (이를 활용하여 재발급에 사용)
         400 : bad request -> phone 을 보내지 않았을 때
@@ -269,7 +276,7 @@ class SMSViewSet(viewsets.GenericViewSet):
         인증번호 재발급에 사용하는 api 입니다.
         body 에 temp_key를 담아 보내주기만 하면 됩니다.
 
-        api: POST accounts/v1/send_sms/resend
+        api: POST accounts/v1/send_sms/resend/
 
         :return
         400 : bad request -> temp_key 에 데이터가 존재하지 않을 때
@@ -301,7 +308,7 @@ class SMSViewSet(viewsets.GenericViewSet):
         body 에 phone 과 key 를 담아 보내야 합니다.
         return 400 시 재전송이 아닌, 이전페이지(핸드폰 번호 입력)로 이동하여 새로운 코드를 발급해야 합니다.
 
-        api: POST accounts/v1/send_sms/confirm
+        api: POST accounts/v1/send_sms/confirm/
 
         :return : phone, temp_key
         400 : bad request -> (1) phone 또는 key 가 없을 때, (2) 해당 key가 이미 인증에 사용된 key 일 때

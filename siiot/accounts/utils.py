@@ -1,7 +1,6 @@
 import string
 import random
 import json
-from accounts.models import PhoneConfirm
 from django.db.models import Sum
 
 from accounts.nickname.models import FirstNickName, LastNickName
@@ -69,9 +68,20 @@ class JusoMaster:
         return (res.json()['results']['common'], res.json()['results']['juso'])
 
 
-def set_random_nickname():
-    first_nickname_list = FirstNickName.objects.values_list('first_nickname', flat=True)
-    last_nickname_list = LastNickName.objects.values_list('last_nickname', flat=True)
-    first_nickname = random.choice(first_nickname_list)
-    last_nickname = random.choice(last_nickname_list)
-    return first_nickname + ' ' + last_nickname + '_' + ''.join(random.choices(string.digits, k=6))
+def set_random_nickname(user_model):
+    adjective_list = FirstNickName.objects.values_list('id', flat=True)
+    noun_list = LastNickName.objects.values_list('id', flat=True)
+
+    # except duplicated nickname
+    while True:
+        first_adjective = random.choice(adjective_list)
+        middle_noun = random.choice(noun_list)
+        last_noun = random.choice([x for x in noun_list if x != middle_noun])
+
+        nickname = FirstNickName.objects.get(id=first_adjective).first_nickname\
+                   + LastNickName.objects.get(id=middle_noun).last_nickname\
+                   + LastNickName.objects.get(id=last_noun).last_nickname
+        if not user_model.objects.filter(nickname=nickname).exists() and len(nickname) <= 14:
+            break
+
+    return nickname

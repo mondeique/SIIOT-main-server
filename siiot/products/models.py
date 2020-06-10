@@ -156,3 +156,14 @@ class ProductUploadRequest(models.Model):
             self.product.possible_upload = True
             self.product.save()
         super(ProductUploadRequest, self).save(*args, **kwargs)
+
+
+class ProductViews(models.Model):
+    product = models.OneToOneField(Product, related_name='views', on_delete=models.CASCADE)
+    count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def view_counts(self):
+        count = self.count * 4
+        return count
