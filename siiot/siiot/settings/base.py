@@ -59,7 +59,8 @@ SECONDS_APPS = [
     'products.supplymentary',
     'products.reply',
     'products',
-    'crawler'
+    'crawler',
+    'mypage',
     # 'api',
     # 'notice',
     # 'landing',

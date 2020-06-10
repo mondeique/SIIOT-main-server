@@ -27,9 +27,25 @@ class IsQuestionWriterPermission(BasePermission):
 
     def has_object_permission(self, request, view, obj):
         if (view.action in ['update', 'destroy', 'partial_update']
-                and super(IsQuestionWriterPermission, self).has_object_permission(request, view, obj)):
+                and bool(request.user and request.user.is_authenticated)):
             user = request.user
             if not user == obj.user:
                 return False
             return True
-        return super(IsQuestionWriterPermission, self).has_object_permission(request, view, obj)
+        return bool(request.user and request.user.is_authenticated)
+
+
+class ProductViewPermission(BasePermission):
+    """
+    ProductViewSet의 Permission을 위해 만들었습니다.
+    create, update, images 등은 IsAuthenticated / retrieve, list 등은 AllowAny
+    """
+    def has_permission(self, request, view):
+        if view.action in ['retrieve', 'list']:
+            return True
+        return bool(request.user and request.user.is_authenticated)
+
+    def has_object_permission(self, request, view, obj):
+        if view.action in ['retrieve', 'list']:
+            return True
+        return bool(request.user and request.user.is_authenticated)

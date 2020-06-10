@@ -1,6 +1,7 @@
 import uuid
 
 from django.db import transaction
+from django.db.models import Case, When, IntegerField, Count
 from django.http import Http404
 from django.utils import timezone
 
@@ -8,16 +9,18 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework import viewsets, mixins
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 # Create your views here.
+from core.permissions import ProductViewPermission
 from crawler.models import CrawlProduct
 from products.category.models import FirstCategory, SecondCategory, Size, Color
 from products.category.serializers import FirstCategorySerializer, SecondCategorySerializer, SizeSerializer, \
     ColorSerializer
 from products.models import Product, ProductImages, ProductUploadRequest
 from products.serializers import ProductFirstSaveSerializer, ReceiptSaveSerializer, ProductSaveSerializer, \
-    ProductImageSaveSerializer, ProductUploadDetailInfoSerializer, ProductTempUploadDetailInfoSerializer
+    ProductImageSaveSerializer, ProductUploadDetailInfoSerializer, ProductTempUploadDetailInfoSerializer, \
+    ProductRetrieveSerializer
 from products.shopping_mall.models import ShoppingMall
 from products.shopping_mall.serializers import ShoppingMallSerializer
 from products.slack import slack_message
@@ -30,8 +33,9 @@ class ProductViewSet(viewsets.GenericViewSet,
                      mixins.UpdateModelMixin,
                      mixins.RetrieveModelMixin,
                      mixins.ListModelMixin):
-    permission_classes = [IsAuthenticated, ]
-    queryset = Product.objects.all()
+    permission_classes = [ProductViewPermission, ]
+    queryset = Product.objects.all().select_related('seller', 'seller__profile', 'seller__delivery_policy')\
+                              .select_related('receipt', 'category', 'purchased_time', 'color', 'size')
 
     """
     상품 업로드 및 조회에 관련된 ViewSet 입니다.
@@ -53,7 +57,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         elif self.action == 'temp_data':
             return ProductTempUploadDetailInfoSerializer
         elif self.action == 'retrieve':
-            return None
+            return ProductRetrieveSerializer
         else:
             return super(ProductViewSet, self).get_serializer_class()
 
@@ -287,6 +291,8 @@ class ProductViewSet(viewsets.GenericViewSet,
         """
         상품 조회하는 api 입니다. 호출시마다 조회수가 증가합니다.
         api: GET api/v1/product/{id}/
+
+        :return serializer 참고
         """
         return super(ProductViewSet, self).retrieve(request, *args, **kwargs)
 
