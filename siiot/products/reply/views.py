@@ -1,16 +1,13 @@
 import uuid
 
-from django.db import transaction
-from django.http import Http404
 from django.shortcuts import get_object_or_404
+from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.decorators import action
-from rest_framework import viewsets, mixins, generics
+from rest_framework import viewsets, mixins
 from core.permissions import AnswerIsSellerPermission, IsQuestionWriterPermission
-from products.models import Product
 from products.reply.models import ProductQuestion, ProductAnswer
 from products.reply.serializers import ProductQuestionCreateSerializer, ProductAnswerCreateSerializer, \
     ProductAnswerRetrieveSerializer, ProductQuestionRetrieveSerializer, ProductRepliesSerializer
@@ -113,7 +110,7 @@ class ProductAnswerViewSet(viewsets.ModelViewSet):
         answer = serializer.save()
 
         # check permission
-        self.check_object_permissions(request, self.product)
+        self.check_object_permissions(request, answer)
 
         serializer = ProductAnswerRetrieveSerializer(answer, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -144,23 +141,26 @@ class ProductAnswerViewSet(viewsets.ModelViewSet):
         """
         return super(ProductAnswerViewSet, self).destroy(request, *args, **kwargs)
 
-
-class ProductRepliesViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
-    permission_classes = [AllowAny, ]
-    serializer_class = ProductRepliesSerializer
-    queryset = ProductQuestion.objects.all()
-
-    def list(self, request, *args, **kwargs):
-        """
-        replies 전체 조회하는 api 입니다.
-        pagination이 구현되었습니다.
-        api: GET api/v1/reply/replies/
-
-        :return:
-                * #pagination# 안의 results에 담김
-                {'id', 'profile_img', 'product', 'text',
-                'age', 'edit_possible',
-                'answers':
-                    [{'id', 'question', 'text', 'age'}, {} ..]
-        """
-        return super(ProductRepliesViewSet, self).list(request, *args, **kwargs)
+#
+# class ProductRepliesViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
+#     permission_classes = [AllowAny, ]
+#     serializer_class = ProductRepliesSerializer
+#     queryset = ProductQuestion.objects.all()
+#
+#     @action(methods=['get'], detail=True)
+#     def replies(self, request, *args, **kwargs):
+#         """
+#         replies 전체 조회하는 api 입니다.
+#         pagination이 구현되었습니다.
+#         api: GET api/v1/product/{id}/replies/
+#         * id: product_id
+#
+#         :return:
+#                 * #pagination# 안의 results에 담김
+#                 {'id', 'profile_img', 'product', 'text',
+#                 'age', 'edit_possible',
+#                 'answers':
+#                     [{'id', 'question', 'text', 'age'}, {} ..]
+#         """
+#
+#         return super(ProductRepliesViewSet, self).list(request, *args, **kwargs)

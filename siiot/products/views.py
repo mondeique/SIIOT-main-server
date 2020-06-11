@@ -18,6 +18,7 @@ from products.category.models import FirstCategory, SecondCategory, Size, Color
 from products.category.serializers import FirstCategorySerializer, SecondCategorySerializer, SizeSerializer, \
     ColorSerializer
 from products.models import Product, ProductImages, ProductUploadRequest, ProductViews
+from products.reply.serializers import ProductRepliesSerializer
 from products.serializers import ProductFirstSaveSerializer, ReceiptSaveSerializer, ProductSaveSerializer, \
     ProductImageSaveSerializer, ProductUploadDetailInfoSerializer, ProductTempUploadDetailInfoSerializer, \
     ProductRetrieveSerializer
@@ -58,6 +59,8 @@ class ProductViewSet(viewsets.GenericViewSet,
             return ProductTempUploadDetailInfoSerializer
         elif self.action == 'retrieve':
             return ProductRetrieveSerializer
+        elif self.action == 'replies':
+            return ProductRepliesSerializer
         else:
             return super(ProductViewSet, self).get_serializer_class()
 
@@ -300,6 +303,28 @@ class ProductViewSet(viewsets.GenericViewSet,
         views.save()
 
         return super(ProductViewSet, self).retrieve(request, *args, **kwargs)
+
+    @action(methods=['get'], detail=True)
+    def replies(self, request, *args, **kwargs):
+        """
+        replies 전체 조회하는 api 입니다.
+        pagination이 구현되었습니다.
+        api: GET api/v1/product/{id}/replies/
+        * id: product_id
+
+        :return:
+                * #pagination# 안의 results에 담김
+                {'id', 'profile_img', 'product', 'text',
+                'age', 'edit_possible',
+                'answers':
+                    [{'id', 'question', 'text', 'age'}, {} ..]
+        """
+        product = self.get_object()
+        if not product.questions.exists():
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        questions = product.questions.all()
+        serializer = self.get_serializer(questions, many=True)
+        return Response(serializer.data)
 
     def list(self, request, *args, **kwargs):
         """

@@ -173,8 +173,6 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
                                .filter(seller=seller, sold=False) \
                                .distinct().order_by('?')[:5]
 
-        self.seller_product_ids = list(other_products.values_list('id', flat=True))
-
         if not other_products:
             return []
         return RelatedProductSerializer(other_products, many=True).data
@@ -183,7 +181,7 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
         second_category = obj.category
         related_products = Product.objects.filter(is_active=True, possible_upload=True) \
                                .select_related('size', 'size__category', 'seller', 'seller__profile') \
-                               .exclude(id=obj.id, id__in=self.seller_product_ids) \
+                               .exclude(id=obj.id) \
                                .filter(category=second_category, sold=False) \
                                .distinct().order_by('?')[:5]
         if not related_products:
