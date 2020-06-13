@@ -9,6 +9,10 @@ def slack_message(message, type):
         incomming_url = load_credential("SLACK_INCOMMING_URL", "")
     elif type == 'shopping_mall_demand':
         incomming_url = load_credential("SLACK_SHOPPINGMALL_DEMAND_INCOMMING_URL", "")
+    elif type == 'crawling_server_error':
+        incomming_url = load_credential("SLACK_CRAWL_ERROR_INCOMMING_URL", "")
+    elif type == 'crawl_error_upload':
+        incomming_url = load_credential("SLACK_CRAWL_ERROR_UPLOAD_INCOMMING_URL", "")
     else:
         return None
     post_data = {"text": '{}'.format(message)}

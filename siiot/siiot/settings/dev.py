@@ -27,8 +27,7 @@ AWS_QUERYSTRING_AUTH = False
 AWS_S3_HOST = 's3.%s.amazonaws.com' % AWS_S3_REGION_NAME
 
 AWS_S3_CUSTOM_DOMAIN = '%s.s3.%s.amazonaws.com' % (AWS_STORAGE_BUCKET_NAME, AWS_S3_REGION_NAME)
-
-STATIC_LOCATION = 'static'
+STATIC_LOCATION = 'statics'
 STATIC_URL = "https://%s/%s/" % (AWS_S3_HOST, STATIC_LOCATION)
 STATICFILES_STORAGE = 'siiot.storage.StaticStorage'
 
@@ -40,9 +39,8 @@ DEFAULT_FILE_STORAGE = 'siiot.storage.CustomS3Boto3Storage'
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.0/howto/static-files/
 
-STATIC_ROOT = "https://%s/static/" % AWS_S3_CUSTOM_DOMAIN
+STATIC_ROOT = "https://%s/statics/" % AWS_S3_CUSTOM_DOMAIN
 MEDIA_ROOT = "https://%s/media/" % AWS_S3_CUSTOM_DOMAIN
-
 
 # CORS
 CORS_ALLOW_CREDENTIALS = True

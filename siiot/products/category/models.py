@@ -71,3 +71,6 @@ class Color(models.Model):
     image = models.ImageField(null=True, blank=True, upload_to=img_directory_path_profile)
     order = models.PositiveIntegerField(unique=True, help_text="client에서 보여주는 순서")
     is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.color

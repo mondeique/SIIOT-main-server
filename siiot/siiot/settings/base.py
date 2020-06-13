@@ -36,6 +36,38 @@ sys.path.append(DJANGO_ROOT)
 ########## END PATH CONFIGURATION
 
 
+########## MEDIA CONFIGURATION
+# See: https://docs.djangoproject.com/en/dev/ref/settings/#static-root
+MEDIA_ROOT = normpath(join(SITE_ROOT, 'media'))
+
+# See: https://docs.djangoproject.com/en/dev/ref/settings/#static-url
+MEDIA_URL = '/media/'
+########## END MEDIA CONFIGURATION
+
+
+########## STATIC FILE CONFIGURATION
+# See: https://docs.djangoproject.com/en/dev/ref/settings/#static-root
+STATIC_ROOT = normpath(join(SITE_ROOT, 'collected_static'))
+# See: https://docs.
+# djangoproject.com/en/dev/ref/contrib/staticfiles/#std:setting-STATICFILES_DIRS
+STATICFILES_DIRS = (
+    normpath(join(SITE_ROOT, 'statics')),
+)
+
+# See: https://docs.djangoproject.com/en/dev/ref/contrib/staticfiles/#staticfiles-finders
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+    # 'djangobower.finders.BowerFinder',
+]
+
+# See: http://django-compressor.readthedocs.io/en/latest/
+# COMPRESS_ENABLED = False
+# COMPRESS_URL = STATIC_URL
+########## END STATIC FILE CONFIGURATION
+
+
+
 INSTALLED_APPS = [
     # Default Django apps
     # third party admin before admin
@@ -123,14 +155,19 @@ ROOT_URLCONF = 'siiot.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
+        'DIRS': ['templates/'],
+        # 'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+            ],
+            'loaders': [
+                'django.template.loaders.filesystem.Loader',
+                'django.template.loaders.app_directories.Loader',
+                'core.template_loader.AppLoader',
             ],
         },
     },
@@ -203,7 +240,7 @@ REST_FRAMEWORK = {
 
 
 AWS_S3_HOST = 's3.ap-northeast-2.amazonaws.com'
-STATIC_LOCATION = 'static'
+STATIC_LOCATION = 'statics'
 STATIC_URL = "https://%s/%s/" % (AWS_S3_HOST, STATIC_LOCATION)
 # See: https://docs.djangoproject.com/en/dev/ref/contrib/staticfiles/#staticfiles-finders
 STATICFILES_FINDERS = [

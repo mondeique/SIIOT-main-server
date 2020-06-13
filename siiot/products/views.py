@@ -17,7 +17,7 @@ from crawler.models import CrawlProduct
 from products.category.models import FirstCategory, SecondCategory, Size, Color
 from products.category.serializers import FirstCategorySerializer, SecondCategorySerializer, SizeSerializer, \
     ColorSerializer
-from products.models import Product, ProductImages, ProductUploadRequest, ProductViews
+from products.models import Product, ProductImages, ProductUploadRequest, ProductViews, ProductCrawlFailedUploadRequest
 from products.reply.serializers import ProductRepliesSerializer
 from products.serializers import ProductFirstSaveSerializer, ReceiptSaveSerializer, ProductSaveSerializer, \
     ProductImageSaveSerializer, ProductUploadDetailInfoSerializer, ProductTempUploadDetailInfoSerializer, \
@@ -116,10 +116,16 @@ class ProductViewSet(viewsets.GenericViewSet,
 
         # crawl request
         product_url = data.get('product_url')
-        if CrawlProduct.objects.filter(product_url=product_url).exists():
+        if CrawlProduct.objects.filter(product_url=product_url).exists() and \
+                CrawlProduct.objects.filter(product_url=product_url).last().detail_images.exists():
             crawl_product_id = CrawlProduct.objects.filter(product_url=product_url).last().id
         else:
-            crawl_product_id = crawl_request(product_url)
+            sucess, id = crawl_request(product_url)
+            if sucess:
+                crawl_product_id = id
+            else:
+                # crawling 실패했을 경우 또는 서버 에러
+                crawl_product_id = None
 
         # product crawl id save
         product.crawl_product_id = crawl_product_id
@@ -219,34 +225,46 @@ class ProductViewSet(viewsets.GenericViewSet,
         data : update()에서 사용했던 데이터와 동일
         """
         data = request.data.copy()
-        year = data.pop('purchased_year', None)
-        month = data.pop('purchased_month', None)
         obj = self.get_object()
 
         serializer = self.get_serializer(obj, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
-
+        data = serializer.validated_data
         # purchased time 을 int 로 받기 위해 valid 이후 data 추가함. (TODO: better code!)
-        if obj.receipt:
-            # 구매내역이 있는 경우
-            data = serializer.validated_data
-            data.update({'purchased_year': year, 'purchased_month': month, 'possible_upload': True, 'temp_save': False})
+        data.update(purchased_year=data.pop('purchased_year', None))
+        data.update(purchased_month=data.pop('purchased_month', None))
+        data.update(temp_save=False) # 임시 저장은 해제해야함
+
+        if obj.receipt or not obj.crawl_product_id:
+            # 구매내역 업로드 인 경우 or 크롤링 실패 한 경우
 
             product = serializer.update(obj, data)
 
-            upload_req = ProductUploadRequest.objects.create(product=product)
-            left_count = ProductUploadRequest.objects.filter(is_done=False).count()
-            slack_message("[업로드 요청] \n [id:{}] -상품명:{}, -신청자:{} || 남은개수 {} ({})".
-                          format(upload_req.id, product.name, request.user, left_count,
-                                 timezone.now().strftime('%y/%m/%d %H:%M')),
-                          'upload_request')
+            # 구매 내역이 있는 경우 업로드 요청.
+            if obj.receipt:
+                upload_req = ProductUploadRequest.objects.create(product=product)
+                left_count = ProductUploadRequest.objects.filter(is_done=False).count()
+                slack_message("[업로드 요청] \n [요청id:{}] -상품명:{}, -신청자:{} || 남은개수 {} ({})".
+                              format(upload_req.id, product.name, request.user, left_count,
+                                     timezone.now().strftime('%y/%m/%d %H:%M')),
+                              'upload_request')
+
+            # 크롤링 실패한 상황에서 최종 업로드 요청시 알림.
+            if not obj.crawl_product_id:
+
+                crawl_failed_upload_req = ProductCrawlFailedUploadRequest(product=product)
+                left_count = ProductCrawlFailedUploadRequest.objects.filter(is_done=False).count()
+
+                slack_message("[(크롤링 실패)업로드 요청] \n [요청id:{}] -상품명:{}, -신청자:{} || 남은개수 {} ({})".
+                              format(crawl_failed_upload_req.id, product.name, request.user, left_count,
+                                     timezone.now().strftime('%y/%m/%d %H:%M')),
+                              'crawl_error_upload')
 
             return Response(status=status.HTTP_206_PARTIAL_CONTENT)
 
         else:
-            # 구매내역이 없는 경우
-            data = serializer.validated_data
-            data.update({'purchased_year': year, 'purchased_month': month,  'temp_save': False})
+            # 구매내역이 없는 경우(직접 업로드) 또는 크롤링 성공한 경우
+            data.update(possible_upload=True) # 이 경우만 메인에 노출됨
             serializer.update(obj, data)
 
             return Response(status=status.HTTP_206_PARTIAL_CONTENT)

@@ -30,6 +30,7 @@ urlpatterns = [
     path('superadmin/', superadmin_panel.urls),
     path('staff/', staff_panel.urls),
     path('admin/', admin.site.urls),
+    path('staff/', include('cunsom_manage.urls')),
     path('api/v1/', include('products.urls')),
     path('accounts/v1/', include('accounts.urls')),
 

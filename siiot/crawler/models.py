@@ -32,7 +32,7 @@ class CrawlProduct(models.Model):
 
 
 class CrawlDetailImage(models.Model):
-    product = models.ForeignKey('CrawlProduct', models.DO_NOTHING, related_name="bag_images")
+    product = models.ForeignKey('CrawlProduct', models.DO_NOTHING, related_name="detail_images")
     detail_url = models.CharField(max_length=200)
     detail_image = models.CharField(max_length=100) # s3 saved image name
 

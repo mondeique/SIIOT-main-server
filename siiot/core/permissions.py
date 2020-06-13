@@ -49,3 +49,22 @@ class ProductViewPermission(BasePermission):
         if view.action in ['retrieve', 'list', 'replies']:
             return True
         return bool(request.user and request.user.is_authenticated)
+
+
+class StaffPermission(BasePermission):
+    """
+    staff 인지 확인하는 permission 입니다.
+    """
+    def has_permission(self, request, view):
+        if request.user and request.user.is_authenticated:
+            if request.user.is_staff:
+                return True
+            return False
+        return False
+
+    def has_object_permission(self, request, view, obj):
+        if request.user and request.user.is_authenticated:
+            if request.user.is_staff:
+                return True
+            return False
+        return False

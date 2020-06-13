@@ -99,6 +99,8 @@ class Product(models.Model):
 
     def __str__(self):
         if self.temp_save:
+            if self.receipt:
+                return '[업로드 요청]' + self.name
             if self.name:
                 return '[임시 저장]' + self.name
             else:
@@ -127,6 +129,18 @@ class Product(models.Model):
         crawl_id = self.crawl_product_id
         return None
 
+    @property
+    def temp_crawl_thumbnail_image_url(self):
+        return settings.MEDIA_ROOT + '999ea1e3-335e-44e9-b2f6-30c40c2dfa86.png'
+
+    @property
+    def temp_crawl_product_name(self):
+        return ''
+
+    @property
+    def temp_crawl_int_price(self):
+        return '정보를 불러오지 못했어요'
+
 
 class ProductImages(models.Model):
     product = models.ForeignKey(Product, related_name="images", on_delete=models.CASCADE)
@@ -141,6 +155,7 @@ class ProductUploadRequest(models.Model):
     """
     구매내역 첨부 후 업로드 요청이 생길 때 생성됩니다.
     admin page에서 해당 모델을 하나씩 처리해 가면 됩니다.
+    * 임시 업로드 해제시 알림 필요
     """
     product = models.ForeignKey('Product', related_name='upload_requests', on_delete=models.CASCADE)
     is_done = models.BooleanField(default=False)
@@ -152,10 +167,43 @@ class ProductUploadRequest(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
-        if self.is_done:
+        if self.is_done and self.product.crawl_product_id:
             self.product.possible_upload = True
+            self.product.temp_save = False
             self.product.save()
         super(ProductUploadRequest, self).save(*args, **kwargs)
+
+
+class ProductCrawlFailedUploadRequest(models.Model):
+    """
+    크롤링 실패 후 임시 일러스트로 업로드 요청시 생성됩니다.
+    product 의 product_url을 참고하여 admin page 에서 직접 입력 해 주어야 합니다.
+    * 임시 업로드 해제시 알림 필요
+    """
+    product = models.ForeignKey('Product', related_name="crawl_failed_upload_requests", on_delete=models.CASCADE)
+    is_done = models.BooleanField(default=False)
+
+    staff = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                              verbose_name='담당자')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        # 관리자가 업로드 요청 처리 한 경우
+        if self.is_done:
+
+            # 상품의 구매내역이 없는경우(직접 업로드 인 경우)
+            if not self.product.receipt:
+                self.product.possible_upload = True
+                self.product.save()
+
+            # 상품의 구매내역이 있고, 관리자가 업로드 한 경우
+            if self.product.receipt and self.product.upload_requests.filter(is_done=True).exists():
+                self.product.possible_upload = True
+                self.product.save()
+
+        super(ProductCrawlFailedUploadRequest, self).save(*args, **kwargs)
 
 
 class ProductViews(models.Model):

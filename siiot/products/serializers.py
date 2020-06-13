@@ -35,6 +35,33 @@ class CrawlDataSerializer(serializers.ModelSerializer):
                   'int_price']
 
 
+class TempCrawlDataSerializer(serializers.ModelSerializer):
+    """
+    크롤링 실패시 임시 데이터를 다루는 serializer 입니다.
+    """
+    thumbnail_image_url = serializers.SerializerMethodField(read_only=True)
+    product_name = serializers.SerializerMethodField(read_only=True)
+    int_price = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Product
+        fields = ['thumbnail_image_url',
+                  'product_name',
+                  'int_price']
+
+    @staticmethod
+    def get_thumbnail_image_url(obj):
+        return obj.temp_crawl_thumbnail_image_url
+
+    @staticmethod
+    def get_product_name(obj):
+        return obj.temp_crawl_product_name
+
+    @staticmethod
+    def get_int_price(obj):
+        return obj.temp_crawl_int_price
+
+
 class ProductRetrieveSerializer(serializers.ModelSerializer):
     """
     상품 상세페이지 조회에 사용하는 serializer 입니다.
@@ -65,7 +92,7 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ['id',
-                  'possible_upload',
+                  'possible_upload', # True 이면 보이고, False 이면 dim 처리
                   'sold',
                   'valid_url', #
                   'age', #
@@ -91,81 +118,104 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
                   'related_products'
                   ]
 
-    def get_valid_url(self, obj):
+    @staticmethod
+    def get_valid_url(obj):
         url = obj.product_url
         valid_url = check_product_url(url)
         if valid_url:
             return True
         return False
 
-    def get_age(self, obj):
+    @staticmethod
+    def get_age(obj):
         return get_age_fun(obj)
 
-    def get_views(self, obj):
+    @staticmethod
+    def get_views(obj):
         if hasattr(obj, 'views'):
             return obj.views.view_counts
         return 0
 
-    def get_crawl_data(self, obj):
-        serializer = CrawlDataSerializer(CrawlProduct.objects.get(id=obj.crawl_product_id))
+    @staticmethod
+    def get_crawl_data(obj):
+        if obj.crawl_product_id:
+            serializer = CrawlDataSerializer(CrawlProduct.objects.get(id=obj.crawl_product_id))
+        else:
+            serializer = TempCrawlDataSerializer(obj)
         return serializer.data
 
-    def get_is_receipt(self, obj):
+    @staticmethod
+    def get_is_receipt(obj):
         if obj.receipt:
             return True
         return False
 
-    def get_discount_rate(self, obj):
+    @staticmethod
+    def get_discount_rate(obj):
         crawl_price = CrawlProduct.objects.get(id=obj.crawl_product_id).int_price
         price = obj.price
+        if not price:
+            return None
         rate = round(abs(crawl_price - price)/crawl_price, 2) * 100
         if crawl_price - price > 0:
             return rate
         return None
 
-    def get_images(self, obj):
+    @staticmethod
+    def get_images(obj):
         if not obj.images.exists():
             return []
         images = obj.images.all()
         return ProductImagesRetrieveSerializer(images, many=True).data
 
-    def get_receipt_image_url(self, obj):
+    @staticmethod
+    def get_receipt_image_url(obj):
         if obj.receipt:
             return obj.receipt.image_url
         else:
             return None
 
-    def get_category(self, obj):
-        print(obj.category.id)
-        return obj.category.name
+    @staticmethod
+    def get_category(obj):
+        if obj.category:
+            return obj.category.name
+        return None
 
-    def get_size(self, obj):
-        return obj.size.size_name
+    @staticmethod
+    def get_size(obj):
+        if obj.size:
+            return obj.size.size_name
+        return None
 
-    def get_purchased_month(self, obj):
+    @staticmethod
+    def get_purchased_month(obj):
         if obj.purchased_time:
             time = obj.purchased_time
             month = time.month
             return month
         return None
 
-    def get_purchased_year(self, obj):
+    @staticmethod
+    def get_purchased_year(obj):
         if obj.purchased_time:
             time = obj.purchased_time
             year = time.year
             return year
         return None
 
-    def get_delivery_policy(self, obj):
+    @staticmethod
+    def get_delivery_policy(obj):
         seller = obj.seller
         if hasattr(seller, 'delivery_policy'):
             return DeliveryPolicyInfoSerializer(seller.delivery_policy).data
         return None
 
-    def get_size_capture_image(self, obj):
+    @staticmethod
+    def get_size_capture_image(obj):
         return None
 
-    def get_other_seller_products(self, obj):
+    @staticmethod
+    def get_other_seller_products(obj):
         seller = obj.seller
         other_products = Product.objects.filter(is_active=True, possible_upload=True) \
                                .select_related('size', 'size__category', 'seller', 'seller__profile') \
@@ -177,9 +227,10 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
             return []
         return RelatedProductSerializer(other_products, many=True).data
 
-    def get_related_products(self, obj):
+    @staticmethod
+    def get_related_products(obj):
         second_category = obj.category
-        related_products = Product.objects.filter(is_active=True, possible_upload=True) \
+        related_products = Product.objects.filter(is_active=True, possible_upload=True, temp_save=False) \
                                .select_related('size', 'size__category', 'seller', 'seller__profile') \
                                .exclude(id=obj.id) \
                                .filter(category=second_category, sold=False) \
@@ -197,11 +248,13 @@ class RelatedProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = ['id', 'thumbnails', 'size', 'price', 'name']
 
-    def get_thumbnails(self, obj):
+    @staticmethod
+    def get_thumbnails(obj):
         c_product = CrawlProduct.objects.get(id=obj.crawl_product_id)
         return c_product.thumbnail_image_url
 
-    def get_size(self, obj):
+    @staticmethod
+    def get_size(obj):
         return obj.size.size_name
 
 
@@ -220,14 +273,19 @@ class ProductUploadDetailInfoSerializer(serializers.ModelSerializer):
                   'receipt_image_url',
                   ]
 
-    def get_receipt_image_url(self, obj):
+    @staticmethod
+    def get_receipt_image_url( obj):
         if obj.receipt:
             return obj.receipt.image_url
         else:
             return None
 
-    def get_crawl_data(self, obj):
-        serializer = CrawlDataSerializer(CrawlProduct.objects.get(id=obj.crawl_product_id))
+    @staticmethod
+    def get_crawl_data(obj):
+        if obj.crawl_product_id:
+            serializer = CrawlDataSerializer(CrawlProduct.objects.get(id=obj.crawl_product_id))
+        else:
+            serializer = TempCrawlDataSerializer(obj)
         return serializer.data
 
 
@@ -258,35 +316,44 @@ class ProductTempUploadDetailInfoSerializer(serializers.ModelSerializer):
                   'category', 'color', 'size', 'purchased_year', 'purchased_month'
                   ]
 
-    def get_crawl_data(self, obj):
-        serializer = CrawlDataSerializer(CrawlProduct.objects.get(id=obj.crawl_product_id))
+    @staticmethod
+    def get_crawl_data(obj):
+        if obj.crawl_product_id:
+            serializer = CrawlDataSerializer(CrawlProduct.objects.get(id=obj.crawl_product_id))
+        else:
+            serializer = TempCrawlDataSerializer(obj)
         return serializer.data
 
-    def get_receipt_image_url(self, obj):
+    @staticmethod
+    def get_receipt_image_url(obj):
         if obj.receipt:
             return obj.receipt.image_url
         else:
             return None
 
-    def get_images(self, obj):
+    @staticmethod
+    def get_images(obj):
         if not obj.images.exists():
             return []
         images = obj.images.all()
         return ProductImagesRetrieveSerializer(images, many=True).data
 
-    def get_name(self, obj):
+    @staticmethod
+    def get_name(obj):
         if obj.name:
             return obj.name
         return CrawlProduct.objects.get(id=obj.crawl_product_id).product_name
 
-    def get_purchased_month(self, obj):
+    @staticmethod
+    def get_purchased_month(obj):
         if obj.purchased_time:
             time = obj.purchased_time
             month = time.month
             return month
         return None
 
-    def get_purchased_year(self, obj):
+    @staticmethod
+    def get_purchased_year(obj):
         if obj.purchased_time:
             time = obj.purchased_time
             year = time.year
