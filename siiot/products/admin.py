@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.shortcuts import redirect
+from django.urls import reverse
 from django.utils.safestring import mark_safe
 
 from crawler.models import CrawlProduct
@@ -39,12 +41,16 @@ class ProductUploadRequestStaffAdmin(admin.ModelAdmin):
     구매내역을 첨부하여 업로드 요청했을 때 admin page 에서 관리하는 adminmodel 입니다.
     (TODO: 구매내역 첨부시 바로 수정할 수 있는 api 및 html 개발)
     """
-    list_display = ['product', 'user', 'created_at', 'updated_at', 'is_done']
+    list_display = ['product', 'user', 'manage_page','created_at', 'updated_at', 'is_done']
     list_editable = ['is_done']
 
     def user(self, obj):
         product = obj.product
         return product.seller
+
+    def manage_page(self, obj):
+        pk = obj.pk
+        return mark_safe('<a href={}>[id {}] 업로드 요청</a>'.format(reverse('upload_reqs', kwargs={'pk': pk}), obj.pk))
 
 
 class FirstCategoryStaffAdmin(admin.ModelAdmin):
