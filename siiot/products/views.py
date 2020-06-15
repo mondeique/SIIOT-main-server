@@ -316,9 +316,13 @@ class ProductViewSet(viewsets.GenericViewSet,
         :return serializer 참고
         """
         product = self.get_object()
-        views, _ = ProductViews.objects.get_or_create(product=product)
-        views.count = views.count + 1
-        views.save()
+        user = request.user
+
+        # 판매자인 경우 count 하지 않음.
+        if user == product.seller:
+            views, _ = ProductViews.objects.get_or_create(product=product)
+            views.count = views.count + 1
+            views.save()
 
         return super(ProductViewSet, self).retrieve(request, *args, **kwargs)
 

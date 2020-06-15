@@ -13,8 +13,8 @@ from products.supplymentary.models import PurchasedReceipt, PurchasedTime
 
 class ProductStaffadmin(admin.ModelAdmin):
     list_display = ['name', 'pk', 'seller', 'upload_type', 'condition',
-                    'shopping_mall', 'sold', 'price', 'is_active', 'temp_save', 'prod_thumb_img', 'created_at']
-    list_editable = ('sold', 'is_active')
+                    'shopping_mall', 'sold_status', 'price', 'is_active', 'temp_save', 'prod_thumb_img', 'created_at']
+    list_editable = ('is_active', )
     fields = ('seller', 'product_url', 'crawl_name', 'crawl_price', 'name', 'price', 'category', 'color', 'size',
               'content', 'purchased_time', 'temp_save', 'possible_upload'
               )
@@ -34,6 +34,10 @@ class ProductStaffadmin(admin.ModelAdmin):
         c_product = CrawlProduct.objects.get(id=obj.crawl_product_id)
         if c_product.product_name:
             return c_product.price
+
+    def sold_status(self, obj):
+        status = obj.status
+        return status.sold
 
 
 class ProductUploadRequestStaffAdmin(admin.ModelAdmin):

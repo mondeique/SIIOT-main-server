@@ -64,14 +64,6 @@ class Product(models.Model):
     content = models.TextField(null=True, blank=True, verbose_name="설명")
     free_delivery = models.BooleanField(default=False, help_text="무료배송 여부")
 
-    # sold 처리 주체 : by 결제, by seller -> 이 경우 다시 sold 해제 가능
-    SOLD_STATUS = [
-        (1, 'by payment'),
-        (2, 'by seller')
-    ]
-    sold = models.BooleanField(default=False, verbose_name='판매여부')
-    sold_status = models.IntegerField(choices=SOLD_STATUS, null=True, blank=True, verbose_name='판매 과정')
-
     # category
     category = models.ForeignKey(SecondCategory, on_delete=models.SET_NULL, null=True, blank=True,
                                  help_text="카테고리 참고 모델입니다. 카테고리 모델은 조합마다 하나만 생성됩니다,")
@@ -140,6 +132,24 @@ class Product(models.Model):
     @property
     def temp_crawl_int_price(self):
         return '정보를 불러오지 못했어요'
+
+
+class ProductStatus(models.Model):
+    # sold 처리 주체 : by 결제, by seller -> 이 경우 다시 sold 해제 가능
+    SOLD_STATUS = [
+        (1, 'by payment'),
+        (2, 'by seller')
+    ]
+
+    sold = models.BooleanField(default=False, verbose_name='판매여부')
+    sold_status = models.IntegerField(choices=SOLD_STATUS, null=True, blank=True, verbose_name='판매 과정')
+
+    product = models.OneToOneField(Product, related_name='status', on_delete=models.CASCADE)
+    editing = models.BooleanField(default=False, help_text="판매자가 상품 정보를 수정시 True 입니다. 결제가 되지 않도록 해야합니다.")
+
+    purchasing = models.BooleanField(default=False, help_text='구매중일 경우 True 입니다. 다른 유저 결제가 되지 않도록 해야합니다.')
+
+    hiding = models.BooleanField(default=False, help_text="숨기기 기능을 구현하기 위해 만들었습니다. True 이면 숨김 처리가 됩니다.")
 
 
 class ProductImages(models.Model):
