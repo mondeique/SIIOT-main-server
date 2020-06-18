@@ -15,27 +15,27 @@ class Product(models.Model):
     seller = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="products", on_delete=models.CASCADE)
 
     # upload type
-    BY_RECEIPT = 11
-    BY_SELF = 12
-    UPLOAD_TYPE = (
-        (BY_RECEIPT, '구매내역 인증 방식'),
-        (BY_SELF, '직접 업로드 방식'),
-    )
-    upload_type = models.IntegerField(choices=UPLOAD_TYPE)
+    # BY_RECEIPT = 11
+    # BY_SELF = 12
+    # UPLOAD_TYPE = (
+    #     (BY_RECEIPT, '구매내역 인증 방식'),
+    #     (BY_SELF, '직접 업로드 방식'),
+    # )
+    # upload_type = models.IntegerField(choices=UPLOAD_TYPE)
 
     # receipt
     receipt = models.OneToOneField(PurchasedReceipt, on_delete=models.SET_NULL, null=True, blank=True, related_name="product")
 
     # product condition
     UNOPENED = 1
-    ONCE = 2
-    TWICE = 3
+    TEST = 2
+    ONCETWICE = 3
     OVER = 4
     OTHER = 0
     CONDITION = (
         (UNOPENED, '미개봉'),
-        (ONCE, '한번 착용'),
-        (TWICE, '두번 착용'),
+        (TEST, '시험 착용'),
+        (ONCETWICE, '한두번 착용'),
         (OVER, '여러번 착용'),
         (OTHER, '기타'),
     )
