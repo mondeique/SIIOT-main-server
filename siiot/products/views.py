@@ -40,7 +40,7 @@ class ProductViewSet(viewsets.GenericViewSet,
 
     """
     상품 업로드 및 조회에 관련된 ViewSet 입니다.
-    유저가 상품 업로드 시 임시저장을 구현하기 위해 처음 저장정보(type, condition, shopping mall, link) 업로드시에만
+    유저가 상품 업로드 시 임시저장을 구현하기 위해 처음 저장정보(condition, shopping mall, link) 업로드시에만
     POST method 로 api를 구현하였고, 
     나머지 (ex: receipt 첨부, image 첨부, 가격 및 카테고리 등)의 경우 업데이트 개념으로 PUT method를 사용하였습니다.
     특히, receipt 와 image 첨부의 경우 다른 api로 구현한 상태입니다.
@@ -53,7 +53,7 @@ class ProductViewSet(viewsets.GenericViewSet,
             return ReceiptSaveSerializer
         elif self.action == 'images':
             return ProductImageSaveSerializer
-        elif self.action in ['update', 'complete', 'complete_with_receipt']:
+        elif self.action in ['update', 'complete']:
             return ProductSaveSerializer
         elif self.action == 'temp_data':
             return ProductTempUploadDetailInfoSerializer
@@ -85,22 +85,22 @@ class ProductViewSet(viewsets.GenericViewSet,
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         """
-        상품 업로드 시 가장먼저 저장되는 정보(업로드 타입, 상태, 쇼핑몰, 링크)까지 저장하는 api 입니다.
+        상품 업로드 시 가장먼저 저장되는 정보(상태, 쇼핑몰, 링크)까지 저장하는 api 입니다.
         처음 호출하기 때문에 create를 활용하여 설정하였습니다.
         * 이 api 가 호출되는 시점에 crawling server에 요청을 보냅니다.
         * 특히 새로 등록할 때 호출되기 때문에 이전에 임시저장했던 상품은 임시저장 해제합니다.
         api : POST api/v1/product/
 
-        data : "upload_type(int)", "condition(int)", "shopping_mall(int)", "product_url(str)"
+        data : ""receipt_image_key(str)", "condition(int)", "shopping_mall(int)", "product_url(str)"
         
         :return {"id",
-                 "receipt_image_url(optional), <- 구매내역 첨부 후 상세정보 입력할 때만 data 존재
+                 "receipt_image_url(optional), <- 구매내역 첨부 후 상세정보 입력할 때만 (상태가 미개봉 상품일 때) data 존재
                  "crawl_data: {'thumbnail_image_url': ~~, "product_name":~~, "int_price":~~ }",
                  }
         """
         user = request.user
         data = request.data.copy()
-
+        receipt = data.pop('receipt_image_key', None)
         temp_products = self.get_queryset().filter(seller=user, temp_save=True)
 
         # temp data reset
@@ -110,9 +110,16 @@ class ProductViewSet(viewsets.GenericViewSet,
                 temp_product.save()
 
         # save here
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         product = serializer.save()
+
+        if receipt:
+            serializer = ReceiptSaveSerializer(data=receipt)
+            serializer.is_valid(raise_exception=True)
+            receipt = serializer.save()
+            product.receipt = receipt
+            product.save()
 
         # crawl request
         product_url = data.get('product_url')
@@ -131,8 +138,8 @@ class ProductViewSet(viewsets.GenericViewSet,
         product.crawl_product_id = crawl_product_id
         product.save()
 
-        # 구매내역 인증 방식인 경우, 해당 api 호출 후 구매내역 첨부하는 페이지로..
-        # 직접 입력인 경우 해당 api 호출 후 상세정보 입력 페이지지로
+        # 미개봉 상품인 경우, 해당 api 호출 후 구매내역 첨부하는 페이지로..
+        # 그 외인 경우 해당 api 호출 후 상세정보 입력 페이지지로
         product_info_serializer = ProductUploadDetailInfoSerializer(product)
 
         return Response(product_info_serializer.data, status=status.HTTP_206_PARTIAL_CONTENT)
@@ -218,7 +225,6 @@ class ProductViewSet(viewsets.GenericViewSet,
         """
         상품 업로드 완료시 호출되는 api 입니다.
         update 에 보냈던 데이터 형식과 동일하게 보내주어야 합니다(최종 저장)
-        구매내역 없이 직접입력 하는경우 possible_upload = True, 구매내역 첨부한 경우 slack으로 알림을 보냅니다.
         최종저장시 임시저장 필드를 False로 바꾸어 조회되지 않도록 저장합니다.
         api : PUT api/v1/product/{id}/complete/
 
@@ -235,36 +241,37 @@ class ProductViewSet(viewsets.GenericViewSet,
         data.update(purchased_month=data.pop('purchased_month', None))
         data.update(temp_save=False) # 임시 저장은 해제해야함
 
-        if obj.receipt or not obj.crawl_product_id:
+        if not obj.crawl_product_id:
             # 구매내역 업로드 인 경우 or 크롤링 실패 한 경우
 
             product = serializer.update(obj, data)
 
             # 구매 내역이 있는 경우 업로드 요청.
-            if obj.receipt:
-                upload_req = ProductUploadRequest.objects.create(product=product)
-                left_count = ProductUploadRequest.objects.filter(is_done=False).count()
-                slack_message("[업로드 요청] \n [요청id:{}] -상품명:{}, -신청자:{} || 남은개수 {} ({})".
-                              format(upload_req.id, product.name, request.user, left_count,
-                                     timezone.now().strftime('%y/%m/%d %H:%M')),
-                              'upload_request')
+            # if obj.receipt:
+            #     upload_req = ProductUploadRequest.objects.create(product=product)
+            #     left_count = ProductUploadRequest.objects.filter(is_done=False).count()
+            #     slack_message("[업로드 요청] \n [요청id:{}] -상품명:{}, -신청자:{} || 남은개수 {} ({})".
+            #                   format(upload_req.id, product.name, request.user, left_count,
+            #                          timezone.now().strftime('%y/%m/%d %H:%M')),
+            #                   'upload_request')
 
             # 크롤링 실패한 상황에서 최종 업로드 요청시 알림.
-            if not obj.crawl_product_id:
+            # if not obj.crawl_product_id:
 
-                crawl_failed_upload_req = ProductCrawlFailedUploadRequest(product=product)
-                left_count = ProductCrawlFailedUploadRequest.objects.filter(is_done=False).count()
+            crawl_failed_upload_req = ProductCrawlFailedUploadRequest(product=product)
+            left_count = ProductCrawlFailedUploadRequest.objects.filter(is_done=False).count()
 
-                slack_message("[(크롤링 실패)업로드 요청] \n [요청id:{}] -상품명:{}, -신청자:{} || 남은개수 {} ({})".
-                              format(crawl_failed_upload_req.id, product.name, request.user, left_count,
-                                     timezone.now().strftime('%y/%m/%d %H:%M')),
-                              'crawl_error_upload')
+            slack_message("[(크롤링 실패)업로드 요청] \n [요청id:{}] -상품명:{}, -신청자:{} || 남은개수 {} ({})".
+                          format(crawl_failed_upload_req.id, product.name, request.user, left_count,
+                                 timezone.now().strftime('%y/%m/%d %H:%M')),
+                          'crawl_error_upload')
 
             return Response(status=status.HTTP_206_PARTIAL_CONTENT)
 
         else:
             # 구매내역이 없는 경우(직접 업로드) 또는 크롤링 성공한 경우
-            data.update(possible_upload=True) # 이 경우만 메인에 노출됨
+            # 이 경우만 메인에 노출됨
+            data.update(possible_upload=True)
             serializer.update(obj, data)
 
             return Response(status=status.HTTP_206_PARTIAL_CONTENT)
@@ -274,7 +281,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         """
         임시저장한 상품정보를 조회할 때 사용하는 api 입니다.
         상품 업로드 과정에 전송했던 모든 데이터를 한번에 return 합니다.
-        특히, 업로드시 처음 입력하는 upload_type, 구매내역 등과 같은 변수도 함께 return 하여 유저가 뒤로가기
+        특히, 업로드시 처음 입력하는 condition, 구매내역(optional) 등과 같은 변수도 함께 return 하여 유저가 뒤로가기
         버튼을 눌렀을 때 클라에서 참고할 수 있도록 합니다. (TODO: 개발구현 논의필요)
         api : GET api/v1/product/temp_data/
 

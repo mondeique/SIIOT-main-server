@@ -12,7 +12,7 @@ from products.supplymentary.models import PurchasedReceipt, PurchasedTime
 
 
 class ProductStaffadmin(admin.ModelAdmin):
-    list_display = ['name', 'pk', 'seller', 'upload_type', 'condition',
+    list_display = ['name', 'pk', 'seller', 'condition',
                     'shopping_mall', 'sold_status', 'price', 'is_active', 'temp_save', 'prod_thumb_img', 'created_at']
     list_editable = ('is_active', )
     fields = ('seller', 'product_url', 'crawl_name', 'crawl_price', 'name', 'price', 'category', 'color', 'size',
