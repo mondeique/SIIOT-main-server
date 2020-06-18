@@ -95,3 +95,7 @@ class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, related_name="profile", on_delete=models.CASCADE)
     profile_img = models.ImageField(upload_to=img_directory_path_profile,
                                     default='default_profile.png')
+
+    @property
+    def profile_image_url(self):
+        return self.profile_img.url
