@@ -306,8 +306,7 @@ class ProductTempUploadDetailInfoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ['id',
-                  'upload_type', 'condition', 'shopping_mall', 'product_url',
+        fields = ['id', 'condition', 'shopping_mall', 'product_url',
                   'crawl_data',
                   'receipt_image_url',
                   'images',
