@@ -34,6 +34,21 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
             serializer = super(AccountViewSet, self).get_serializer_class()
         return serializer
 
+    @action(methods=['get'], detail=False)
+    def check_userinfo(self, request):
+        """
+        스플래시 화면에서 유저가 자동로그인이 가능하도록 해당 유저가 가지고 있는 토큰의 유효성을 판단하는 API
+        추가로 유저의 환불계좌 입력 유무에 따라 업로드 시 client 에서 띄워주는 페이지가 다름
+        :param request: header token or not
+        :return: status
+        """
+        if request.user.is_anonymous:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+        if request.user:
+            return Response(status=status.HTTP_200_OK)
+        else:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
     @action(methods=['post'], detail=False)
     def signup(self, request, *args, **kwargs):
         """
