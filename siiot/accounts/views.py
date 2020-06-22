@@ -39,8 +39,11 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         """
         스플래시 화면에서 유저가 자동로그인이 가능하도록 해당 유저가 가지고 있는 토큰의 유효성을 판단하는 API
         추가로 유저의 환불계좌 입력 유무에 따라 업로드 시 client 에서 띄워주는 페이지가 다름
+        api: POST accounts/v1/check_userinfo/
         :param request: header token or not
-        :return: status
+        :return:
+        200 : 해당 토큰을 가진 유저가 존재할 때
+        401 : 해당 토큰을 가진 유저가 존재하지 않거나 토큰을 담아서 주지 않았을 때
         """
         if request.user.is_anonymous:
             return Response(status=status.HTTP_401_UNAUTHORIZED)

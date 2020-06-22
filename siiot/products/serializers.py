@@ -11,7 +11,7 @@ import math
 from core.utils import get_age_fun
 from crawler.models import CrawlProduct
 from mypage.serializers import SimpleSellerInfoSerializer, DeliveryPolicyInfoSerializer
-from products.models import Product, ProductImages
+from products.models import Product, ProductImages, ProductLike
 from products.supplymentary.models import PurchasedReceipt, PurchasedTime
 from products.utils import check_product_url
 
@@ -62,6 +62,56 @@ class TempCrawlDataSerializer(serializers.ModelSerializer):
         return obj.temp_crawl_int_price
 
 
+class ProductMainSerializer(serializers.ModelSerializer):
+    """
+    상품 메인페이지 및 찜한 상품 조회에 사용하는 serializer 입니다.
+    """
+    discount_rate = serializers.SerializerMethodField()
+    thumbnail_image_url = serializers.SerializerMethodField(read_only=True)
+    int_price = serializers.SerializerMethodField(read_only=True)
+    is_owner = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = ['id',
+                  'name',
+                  'discount_rate',
+                  'thumbnail_image_url',
+                  'int_price',
+                  'price',
+                  'is_owner']
+
+
+    @staticmethod
+    def get_discount_rate(obj):
+        if not obj.crawl_product_id:
+            return None
+        crawl_price = CrawlProduct.objects.get(id=obj.crawl_product_id).int_price
+        price = obj.price
+        rate = round(abs(crawl_price - price) / crawl_price, 2) * 100
+        if crawl_price - price > 0:
+            return rate
+        return None
+
+    @staticmethod
+    def get_thumbnail_image_url(obj):
+        if not obj.crawl_product_id:
+            return obj.images.first().image_url
+        return CrawlProduct.objects.get(id=obj.crawl_product_id).thumbnail_image_url
+
+    @staticmethod
+    def get_int_price(obj):
+        if not obj.crawl_product_id:
+            return None
+        return CrawlProduct.objects.get(id=obj.crawl_product_id).int_price
+
+    def get_is_owner(self, obj):
+        user = self.context['request'].user
+        if obj.seller == user:
+            return True
+        return False
+
+
 class ProductRetrieveSerializer(serializers.ModelSerializer):
     """
     상품 상세페이지 조회에 사용하는 serializer 입니다.
@@ -72,6 +122,7 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
     discount_rate = serializers.SerializerMethodField()
     is_receipt = serializers.SerializerMethodField()
     views = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
 
     images = serializers.SerializerMethodField()
 
@@ -94,6 +145,7 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
         fields = ['id',
                   'possible_upload', # True 이면 보이고, False 이면 dim 처리
                   'sold',
+                  'is_liked',
                   'valid_url', #
                   'age', #
                   'views', #
@@ -143,6 +195,14 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
         else:
             serializer = TempCrawlDataSerializer(obj)
         return serializer.data
+
+    def get_is_liked(self, obj):
+        user = self.context['request'].user
+        liked = ProductLike.objects.filter(product=obj, user=user)
+        if liked.exists():
+            liked = liked.last()
+            return liked.is_liked
+        return False
 
     @staticmethod
     def get_is_receipt(obj):
@@ -403,3 +463,9 @@ class ProductImagesRetrieveSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImages
         fields = ('image_key', )
+
+
+class LikeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductLike
+        fields = ['is_liked']

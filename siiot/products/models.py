@@ -225,3 +225,9 @@ class ProductViews(models.Model):
     def view_counts(self):
         count = self.count * 4
         return count
+
+
+class ProductLike(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='liker', on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, related_name='liked', on_delete=models.CASCADE)
+    is_liked = models.BooleanField(default=True)

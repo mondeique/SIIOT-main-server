@@ -17,16 +17,18 @@ from crawler.models import CrawlProduct
 from products.category.models import FirstCategory, SecondCategory, Size, Color
 from products.category.serializers import FirstCategorySerializer, SecondCategorySerializer, SizeSerializer, \
     ColorSerializer
-from products.models import Product, ProductImages, ProductUploadRequest, ProductViews, ProductCrawlFailedUploadRequest
+from products.models import Product, ProductImages, ProductUploadRequest, ProductViews, ProductCrawlFailedUploadRequest, \
+    ProductLike
 from products.reply.serializers import ProductRepliesSerializer
 from products.serializers import ProductFirstSaveSerializer, ReceiptSaveSerializer, ProductSaveSerializer, \
     ProductImageSaveSerializer, ProductUploadDetailInfoSerializer, ProductTempUploadDetailInfoSerializer, \
-    ProductRetrieveSerializer
+    ProductRetrieveSerializer, LikeSerializer, ProductMainSerializer
 from products.shopping_mall.models import ShoppingMall
 from products.shopping_mall.serializers import ShoppingMallSerializer
 from products.slack import slack_message
 from products.supplymentary.serializers import ShoppingMallDemandSerializer
 from products.utils import crawl_request, check_product_url
+from core.pagination import SiiotPagination
 
 
 class ProductViewSet(viewsets.GenericViewSet,
@@ -61,6 +63,10 @@ class ProductViewSet(viewsets.GenericViewSet,
             return ProductRetrieveSerializer
         elif self.action == 'replies':
             return ProductRepliesSerializer
+        elif self.action in ['like']:
+            return LikeSerializer
+        elif self.action in ['likes']:
+            return ProductMainSerializer
         else:
             return super(ProductViewSet, self).get_serializer_class()
 
@@ -362,6 +368,90 @@ class ProductViewSet(viewsets.GenericViewSet,
         api: GET api/v1/product/
         """
         return super(ProductViewSet, self).list(request, *args, **kwargs)
+
+    @action(methods=['post'], detail=True)
+    def like(self, request, *args, **kwargs):
+        """
+        상품 찜 버튼을 눌렀을 때 호출되는 API입니다. 상품 product id를 url에 담아서 호출해야합니다.
+        api: POST api/v1/product/{id}/like/
+        * id: product_id
+
+        :return:
+        404 : 해당 id를 가진 상품이 존재하지 않을 경우
+        206 : 찜 버튼 호출 성공 및 status 변경
+        """
+        user = request.user
+        try:
+            product = self.get_object()
+        except self.get_object().DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        like, tf = ProductLike.objects.get_or_create(user=user, product=product)
+        if not tf:
+            if like.is_liked:
+                like.is_liked = False
+            else:
+                like.is_liked = True
+            like.save()
+        return Response(status=status.HTTP_206_PARTIAL_CONTENT)
+
+    @action(methods=['get'], detail=False)
+    def likes(self, request, *args, **kwargs):
+        """
+        찜한 상품들을 조회하는 API 입니다.
+        api: GET api/v1/product/likes/
+
+        :return:
+        404 : 해당 유저가 존재하지 않을 경우
+       """
+        user = request.user
+        if not user:
+            return Response({}, status=status.HTTP_404_NOT_FOUND)
+        id_list = list(ProductLike.objects.filter(user=user, is_liked=True).values_list('product_id', flat=True))
+        qs = Product.objects.filter(id__in=id_list)
+        # filter
+        filter_param = int(request.query_params.get('filter', 1))  # filter 있으면 filter, 없으면 1
+        if filter_param == 1:
+            # 최신순
+            filter_queryset = qs.order_by('created_at')
+        elif filter_param == 2:
+            # 오래된순
+            filter_queryset = qs.order_by('-created_at')
+        elif filter_param == 3:
+            # 저가순
+            filter_queryset = qs.order_by('price')
+        elif filter_param == 4:
+            # 고가순
+            filter_queryset = qs.order_by('-price')
+        else:
+            filter_queryset = qs
+        paginator = SiiotPagination()
+        page = paginator.paginate_queryset(queryset=filter_queryset, request=request)
+        products_serializer = self.get_serializer(page, many=True, context={'request': request})
+        return paginator.get_paginated_response(products_serializer.data)
+
+    @action(methods=['post'], detail=False)
+    def delete_like(self, request, *args, **kwargs):
+        """
+        찜한 목록 편집 시 product id의 list를 받아 찜 정보를 update하는 API 입니다.
+        api : POST api/v1/product/delete_like/
+
+        :param request:
+        product_list : 삭제하고 싶은 list of product id
+
+        :return:
+        206 : 성공적으로 delete가 된 경우
+        404 : list of product id 중 해당 product 가 존재하지 않는 경우
+        """
+        user = request.user
+        product_list = request.data.get('product_list', None)
+        qs = ProductLike.objects.filter(product_id__in=product_list, user=user)
+
+        if not qs.exists():
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+        qs.update(is_liked=False)
+
+        return Response(status=status.HTTP_206_PARTIAL_CONTENT)
 
 
 class ShoppingMallViewSet(viewsets.GenericViewSet):
