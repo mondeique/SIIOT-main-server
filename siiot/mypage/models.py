@@ -40,3 +40,6 @@ class Accounts(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        verbose_name = '계좌'
+        verbose_name_plural = '계좌'

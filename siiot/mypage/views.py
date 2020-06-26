@@ -12,25 +12,10 @@ from rest_framework import viewsets, mixins
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
 # Create your views here.
-from core.permissions import ProductViewPermission
-from crawler.models import CrawlProduct
 from mypage.models import Accounts
 from products.category.models import FirstCategory, SecondCategory, Size, Color, Bank
 from products.category.serializers import FirstCategorySerializer, SecondCategorySerializer, SizeSerializer, \
     ColorSerializer, BankListSerializer, AccountsSerializer
-from products.models import Product, ProductImages, ProductUploadRequest, ProductViews, ProductCrawlFailedUploadRequest, \
-    ProductLike
-# ProductLike
-from products.reply.serializers import ProductRepliesSerializer
-from products.serializers import ProductFirstSaveSerializer, ReceiptSaveSerializer, ProductSaveSerializer, \
-    ProductImageSaveSerializer, ProductUploadDetailInfoSerializer, ProductTempUploadDetailInfoSerializer, \
-    ProductRetrieveSerializer,  ProductMainSerializer #LikeSerializer
-from products.shopping_mall.models import ShoppingMall
-from products.shopping_mall.serializers import ShoppingMallSerializer
-from products.slack import slack_message
-from products.supplymentary.serializers import ShoppingMallDemandSerializer
-from products.utils import crawl_request, check_product_url
-from core.pagination import SiiotPagination
 
 
 class AccountsViewSet(viewsets.ModelViewSet):
@@ -45,7 +30,14 @@ class AccountsViewSet(viewsets.ModelViewSet):
 
         data = {'bank" :int(bank id), 'bank_accounts': str, 'accounts_holder': str}
         """
-        return super(AccountsViewSet, self).create(request, *args, **kwargs)
+        user = request.user
+        if hasattr(user, 'accounts'):
+            serializer = self.get_serializer(user.accounts, data=request.data)
+        else:
+            serializer = self.get_serializer(request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(methods=['get'], detail=False)
     def bank_list(self, request, *args, **kwargs):
