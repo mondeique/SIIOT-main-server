@@ -124,7 +124,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_review_score(self, obj):
         if obj.received_reviews.first():
-            score = obj.received_reviews.all().values('satisfaction').\
+            score = obj.received_reviews.all().values('satisfaction'). \
                 annotate(score=Avg('satisfaction')).values('score')[0]['score']
             return score
         return 0.0
@@ -135,32 +135,11 @@ class UserSerializer(serializers.ModelSerializer):
     def get_profile(self, obj):
         return obj.profile.profile_img_url
 
-    # def get_profile(self, obj):
-    #     if hasattr(obj.socialaccount_set.last(), 'extra_data'):
-    #         social_profile_img = obj.socialaccount_set.last().extra_data['properties'].get('profile_image')
-    #         return {"thumbnail_img": social_profile_img}
-    #     try:
-    #         profile = obj.profile
-    #         return ThumbnailSerializer(profile).data
-    #     except:
-    #          return {"thumbnail_img": "{}img/profile_default.png".format(settings.STATIC_ROOT)}
-
 
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
         fields = ['user', 'thumbnail_img', 'introduce']
-
-
-class CommonSerializer(serializers.Serializer):
-    totalCount = serializers.IntegerField()
-    currentPage = serializers.IntegerField()
-
-
-
-class KakaoSerializer(serializers.Serializer):
-    id = serializers.CharField()
-    # properties =
 
 
 class ChatUserInfoSerializer(serializers.ModelSerializer):
@@ -173,3 +152,16 @@ class ChatUserInfoSerializer(serializers.ModelSerializer):
     def get_profile_img(self, obj):
         profile = obj.profile
         return profile.profile_img_url
+
+
+class UserInfoSerializer(serializers.ModelSerializer):
+    seller_registered = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'seller_registered']
+
+    def get_seller_registered(self, user):
+        if hasattr(user, 'accounts'):
+            return True
+        return False

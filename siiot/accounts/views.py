@@ -15,7 +15,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 # Create your views here.
 from accounts.models import User, PhoneConfirm
 from accounts.serializers import LoginSerializer, SignupSerializer, CredentialException, NicknameSerializer, \
-    ResetPasswordSerializer
+    ResetPasswordSerializer, UserInfoSerializer
 from accounts.sms.signature import simple_send
 from accounts.sms.utils import SMSManager
 from accounts.utils import create_token, set_random_nickname
@@ -33,6 +33,8 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
             serializer = ResetPasswordSerializer
         elif self.action == 'login':
             serializer = LoginSerializer
+        elif self.action == 'check_userinfo':
+            serializer = UserInfoSerializer
         else:
             serializer = super(AccountViewSet, self).get_serializer_class()
         return serializer
@@ -48,12 +50,13 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         200 : 해당 토큰을 가진 유저가 존재할 때
         401 : 해당 토큰을 가진 유저가 존재하지 않거나 토큰을 담아서 주지 않았을 때
         """
+        print(request.user)
         if request.user.is_anonymous:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
-        if request.user:
-            return Response(status=status.HTTP_200_OK)
-        else:
-            return Response(status=status.HTTP_401_UNAUTHORIZED)
+        user = request.user
+        serializer = self.get_serializer(user)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(methods=['post'], detail=False)
     def signup(self, request, *args, **kwargs):
