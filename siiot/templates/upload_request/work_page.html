@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block title %}source{% endblock %}
+
+{% block script %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/async/2.0.1/async.js"></script>
+{% endblock %}
+
+{% block body %}
+    {%  if user.is_authenticated  %}
+        <div style=" float: left;">
+        <div class="receipt" style="float: left">
+            {% if product.receipt %}
+                <img src="{{ product.receipt.image_url }}" height="400px">
+            {% else %}
+                <img src="{{ product.temp_crawl_thumbnail_image_url }}" height="400px">
+            {% endif %}
+        </div>
+
+        <div class="data" style="display: inline-block"><br>
+            <form action="" method="POST">
+                {% csrf_token %}
+                <table style="font-family: 'Noto Sans CJK KR Regular'; font-size: 16px">
+                    {% for field in form %}
+                        <tr>
+                            <td>{{ field.label_tag }} </td>
+                            <td>{{field}}</td>
+                        </tr>
+                    {% endfor %}
+                </table><br>
+                <input type="submit" value="제출">
+            </form>
+            <br>
+            <div>
+                <h5>name : {{ product.name }}</h5>
+                <h5>category : {{ product.category }}</h5>
+                <h5>color : {{ product.color }}</h5>
+                <h5>size : {{ product.size }}</h5>
+            </div>
+        <br>
+            {% if object.is_done %}
+                <h4 style="background-color: deepskyblue; font-family: 'Noto Sans CJK KR Medium'; font-size: 20px">완료됨</h4>
+                {% else %}
+                <h4 style="background-color: darkorchid; font-family: 'Noto Sans CJK KR Medium'; font-size: 20px">작업필요</h4>
+                {% endif %}
+
+            <div class="data" style="float: left">
+                {% if prev_id %}
+                    <a class="btn btn-danger" href="{% url 'upload_reqs' pk=prev_id.pk %}">Prev</a>
+                {% else %}
+                    <a class="btn btn-danger" disabled="disabled">Start</a>
+                {% endif %}
+            </div>
+            <div class="data" style="display: inline-block">
+                {% if next_id %}
+                    <a class="btn btn-danger" href="{% url 'upload_reqs' pk=next_id.pk %}">Prev</a>
+                {% else %}
+                    <a class="btn btn-danger" disabled="disabled">End</a>
+                {% endif %}
+            </div>
+        </div>
+
+
+    {% else %}
+        <p>You are not logged in</p>
+        <a href="{% url 'login' %}">login</a>
+    {% endif %}
+{% endblock %}
+
+
+{% block css %}
+    <style>
+        .receipt {
+            margin: 100px 100px 100px 150px;
+            padding: 1px 1px 1px 1px;
+            border: 3px solid silver;
+        }
+
+        .data {
+            margin: 100px 20px 50px 130px;
+            padding: 1px 1px 1px 1px;
+        }
+
+        .col-md-1 p {
+            color: red;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+    </style>
+{% endblock %}

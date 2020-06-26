@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block main %}
+        <h1>{{ user }}님의  채팅 리스트</h1>
+        {% if rooms.exists %}
+            {% for room in rooms %}
+                <h2>{{ room.buyer }}님(b)과 {{ room.seller }}님(s)의 채팅입니다.</h2>
+                <input class="room-name-submit" type="button" value="{{ room.id }}"/>
+            {% endfor %}
+        {% else %}
+            <h1>채팅이 아직 없어요!</h1>
+        {% endif %}
+    <script>
+        var recepient;
+
+        var list = document.querySelectorAll("input");
+
+        console.log(list.length);
+        console.log("ddd");
+
+
+
+        $("document").ready(function () {
+            console.log('ready!');
+            $.ajax({
+                method: "GET",
+                url: "http://54.180.89.57:8000/chat/get_token/",
+                success: function (res) {
+                    console.log(res.token);
+                    if(res.token){
+                        window.localStorage.setItem("token", res.token)
+                    }else{
+                        window.alert("beep");
+                    }
+                },
+                error:function () {
+                    window.alert("errororor")
+                }
+
+            })
+        });
+        for(i =0; i<list.length; i++){
+
+            list[i].addEventListener("click", function (e) {
+                var roomId = this.value;
+                window.location.href = `/chat/${roomId}/`
+            })
+        }
+    </script>
+
+{% endblock %}
+

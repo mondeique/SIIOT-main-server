@@ -1,0 +1,15 @@
+
+.login-button {
+    display: inline-block;
+    color: #ffffff;
+    margin-right: 4rem;
+    padding-top: .3125rem;
+    padding-bottom: .3125rem;
+    padding-right: 13px;
+    font-size: 15px
+}
+
+a:hover {
+    color: #fff;
+    text-decoration: none;
+}

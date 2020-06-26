@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block main %}
+    <body>
+    {{ room_name_json }}
+    <div class="col-md-8">
+        <div class="panel panel-info">
+            <div class="panel-heading">
+                <h4 class="panel-title">Chat</h4>
+            </div>
+            <div>
+                <ul id="messages" class="messages">
+                    {# Messages go here #}
+                </ul>
+            </div>
+            <div class="panel-footer">
+                <div class="input-group">
+                    <input id="chat-input" type="text"
+                           class="form-control input"
+                           placeholder="Type your message here ..."
+                           maxlength="500">
+                    <span class="input-group-btn">
+                            <button class="btn btn-info btn" id="btn-send">
+                                Send</button>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+    <textarea id="chat-log" cols="100" rows="20"></textarea><br/>
+    <input id="chat-message-input" type="text" size="100"/><br/>
+    <input id="chat-message-submit" type="button" value="Send"/>
+    </body>
+
+    <script>
+        var token
+        $("document").ready(function () {
+            token = window.localStorage.getItem("token")
+        })
+        var roomName = {{ room_name_json }};
+        console.log('adadada');
+        let currentRecipient = '';
+        let currentUser = '{{ request.user.username }}';
+        let chatInput = $('#chat-input');
+        let chatButton = $('#btn-send');
+
+        var chatSocket = new WebSocket(
+            'ws://' + '15.164.101.147:8888' +
+            '/ws/' + 'chat/' + roomName + '/');
+
+        {#chatSocket.onmessage = function(e) {#}
+        {#    var data = JSON.parse(e.data);#}
+        {#    var message = data['message'];#}
+        {#    document.querySelector('#chat-log').value += (message + '\n');#}
+
+
+
+
+        chatInput.keypress(function (e) {
+            if (e.keyCode == 13)
+                chatButton.click();
+        });
+
+        chatButton.click = function(e) {
+            console.log('asdasdasda12213123')
+            if (chatInput.val().length > 0) {
+                sendMessage(roomName, chatInput.val());
+                chatInput.val('');
+            }
+        };
+
+        {#chatSocket.onmessage = function (e) {#}
+        {#    console.log('connect!!')#}
+        {#    getMessageById(e.data);#}
+        chatSocket.onmessage = function(e) {
+            var data = JSON.parse(e.data);
+            var message = data['message'];
+            document.querySelector('#chat-log').value += (message + '\n');
+        };
+
+        chatSocket.onclose = function(e) {
+            console.error('Chat socket closed unexpectedly');
+        };
+
+        function getMessageById(message) {
+            id = JSON.parse(message).message
+            $.getJSON(`/chat/api/v1/message/${id}/`, function (data) {
+
+                drawMessage(data);
+
+                messageList.animate({scrollTop: messageList.prop('scrollHeight')});
+            });
+        }
+
+        function drawMessage(message) {
+            let position = 'left';
+            const date = new Date(message.created_at);
+            if (message.user === currentUser) position = 'right';
+            const messageItem = `
+            <li class="message ${position}">
+                <div class="avatar">${message.user}</div>
+                    <div class="text_wrapper">
+                        <div class="text">${message.text}<br>
+                            <span class="small">${date}</span>
+                    </div>
+                </div>
+            </li>`;
+            $(messageItem).appendTo('#messages');
+        }
+
+        function sendMessage(roomName, text) {
+            $.ajax({
+                type : "POST",
+                url : 'http://54.180.89.57:8000/chat/api/v1/message/',
+                beforeSend : function (xhr) {
+                    xhr.setRequestHeader("Authorization", "Token " + token)
+                },
+                data:{
+                    room: roomName,
+                    text: text
+                }
+            })};
+//  asdasd   //
+        document.querySelector('#chat-message-input').focus();
+        document.querySelector('#chat-message-input').onkeyup = function(e) {
+            if (e.keyCode === 13) {  // enter, return
+                document.querySelector('#chat-message-submit').click();
+            }
+        };
+
+
+        document.querySelector('#chat-message-submit').onclick = function(e) {
+            var messageInputDom = document.querySelector('#chat-message-input');
+            var message = messageInputDom.value;
+            chatSocket.send(JSON.stringify({
+                'message': message
+            }));
+
+            messageInputDom.value = '';
+        };
+
+    </script>
+
+{% endblock %}

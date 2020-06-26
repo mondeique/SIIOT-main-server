@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}source{% endblock %}
+
+{% block script %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/async/2.0.1/async.js"></script>
+{% endblock %}
+
+{% block body %}
+    {%  if user.is_authenticated  %}
+        <div style=" float: left;">
+            <div class="row">
+                <h1 style="font-family: 'Noto Sans CJK KR Regular'; font-size: 21px">
+                    {{ user.nickname }}님 안녕하세요</h1>
+                <h3 style="font-family: 'Noto Sans CJK KR Thin'; font-size: 18px; background-color: antiquewhite">
+                    구매내역 첨부 업로드 및 크롤링 실패 시 임시 업로드를 관리하는 페이지 입니다.
+                </h3>
+                <br><br>
+                {% if upload_reqs.count >= 0 %}
+                    <h1><a class="btn btn-info" href="{% url 'upload_reqs' pk=upload_reqs.first.id %}" style="font-size: 19px">구매내역 업로드 처리</a></h1>
+                {% else %}
+                    <h1><a class="btn btn-info" href="javascript:void(0)" style="font-size: 19px" disabled="disabled">구매내역 업로드 처리</a></h1>
+                {% endif %}
+                <h3 style="color: royalblue; font-size:17px"> 업로드 요청 수: {{ upload_reqs.count }} </h3>
+
+            </div>
+            <br><br><br>
+            <div class="row">
+                {% if crawl_fails.count > 0 %}
+                    <h1><a class="btn btn-danger" href="{% url 'upload_reqs' pk=crawl_fails.first.id %}" style="font-size: 19px">크롤링 실패 데이터 처리</a></h1>
+                {% else %}
+                    <h1><a class="btn btn-danger" href="javascript:void(0)" style="font-size: 19px" disabled="disabled">크롤링 실패 데이터 처리</a></h1>
+                {% endif %}
+
+                <h3 style="color: darkblue; font-size:17px"> 크롤링 실패 개수: {{ crawl_fails.count }}</h3>
+            </div>
+            <br><br><br>
+
+        </div>
+        <br><br>
+
+    {% else %}
+        <p>You are not logged in</p>
+        <a href="{% url 'login' %}">login</a>
+    {% endif %}
+{% endblock %}
+
+
+{% block css %}
+    <style>
+        .row {
+            margin: 5px 2px 10px 50px;
+        }
+
+        .col-md-1 p {
+            color: red;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+    </style>
+{% endblock %}
