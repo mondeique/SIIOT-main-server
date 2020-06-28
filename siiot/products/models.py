@@ -1,10 +1,14 @@
 from django.conf import settings
 from django.db import models
-
+from io import BytesIO
+import requests
 from core.fields import S3ImageKeyField
 from products.category.models import MixCategory, Size, Color, SecondCategory
 from products.shopping_mall.models import ShoppingMall
 from products.supplymentary.models import SizeCaptureImage, PurchasedTime, PurchasedReceipt
+from imagekit.models import ProcessedImageField
+from imagekit.processors import ResizeToFill
+from django.core.files.uploadedfile import InMemoryUploadedFile
 
 
 def img_directory_path_profile(instance, filename):
@@ -150,6 +154,45 @@ class ProductImages(models.Model):
     @property
     def image_url(self):
         return self.image_key.url
+
+
+def thumb_directory_path(instance, filename):
+    return 'user/{}/products/thumbnail_{}'.format(instance.product.seller.id, filename)
+
+
+class ProdThumbnail(models.Model):
+    product = models.OneToOneField(Product, on_delete=models.CASCADE)
+    # image_key = S3ImageKeyField() # client key 저장 후 save 시 image 저장
+    thumbnail = ProcessedImageField(
+        upload_to=thumb_directory_path,  # 저장 위치
+        processors=[ResizeToFill(350, 350)],  # 사이즈 조정
+        format='JPEG',  # 최종 저장 포맷
+        options={'quality': 90},
+        null=True, blank=True)
+
+    @property
+    def image_url(self):
+        return self.thumbnail.url
+
+    def save(self, *args, **kwargs):
+        super(ProdThumbnail, self).save(*args, **kwargs)
+        self._save_thumbnail()
+
+    def _save_thumbnail(self):
+        from PIL import Image
+        resp = requests.get(self.product.images.first().image_url)
+        image = Image.open(BytesIO(resp.content))
+        image.seek(0)
+        crop_io = BytesIO()
+        # image.convert("RGB")
+        image.save(crop_io, format='png')
+        crop_file = InMemoryUploadedFile(crop_io, None, self._get_file_name(), 'image/jpeg', len(crop_io.getvalue()), None)
+        self.thumbnail.save(self._get_file_name(), crop_file, save=False)
+        # To avoid recursive save, call super.save
+        super(ProdThumbnail, self).save()
+
+    def _get_file_name(self):
+        return '{}.jpg'.format(self.product.images.first().image_key)
 
 
 class ProductUploadRequest(models.Model):

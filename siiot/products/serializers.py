@@ -467,7 +467,7 @@ class ProductImagesRetrieveSerializer(serializers.ModelSerializer):
         fields = ('image_key', )
 
 
-# class LikeSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = ProductLike
-#         fields = ['is_liked']
+class LikeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductLike
+        fields = ['is_liked']

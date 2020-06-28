@@ -18,12 +18,12 @@ from products.category.models import FirstCategory, SecondCategory, Size, Color,
 from products.category.serializers import FirstCategorySerializer, SecondCategorySerializer, SizeSerializer, \
     ColorSerializer, BankListSerializer
 from products.models import Product, ProductImages, ProductUploadRequest, ProductViews, ProductCrawlFailedUploadRequest, \
-    ProductLike
+    ProductLike, ProdThumbnail
 # ProductLike
 from products.reply.serializers import ProductRepliesSerializer
 from products.serializers import ProductFirstSaveSerializer, ReceiptSaveSerializer, ProductSaveSerializer, \
     ProductImageSaveSerializer, ProductUploadDetailInfoSerializer, ProductTempUploadDetailInfoSerializer, \
-    ProductRetrieveSerializer,  ProductMainSerializer #LikeSerializer
+    ProductRetrieveSerializer, ProductMainSerializer, LikeSerializer  # LikeSerializer
 from products.shopping_mall.models import ShoppingMall
 from products.shopping_mall.serializers import ShoppingMallSerializer
 from products.slack import slack_message
@@ -64,8 +64,8 @@ class ProductViewSet(viewsets.GenericViewSet,
             return ProductRetrieveSerializer
         elif self.action == 'replies':
             return ProductRepliesSerializer
-        # elif self.action in ['like']:
-        #     return LikeSerializer
+        elif self.action in ['like']:
+            return LikeSerializer
         elif self.action in ['likes']:
             return ProductMainSerializer
         else:
@@ -85,7 +85,13 @@ class ProductViewSet(viewsets.GenericViewSet,
         valid_url = check_product_url(url)
 
         if valid_url:
-            return Response(status=status.HTTP_200_OK)
+            # database 존재
+            if CrawlProduct.objects.filter(product_url=url).exists() and \
+                    CrawlProduct.objects.filter(product_url=url).last().detail_images.exists():
+                return Response({'status': True}, status=status.HTTP_200_OK)
+            # 첫 크롤링 시도
+            else:
+                return Response({'status': False}, status=status.HTTP_200_OK)
         else:
             return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -95,7 +101,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         상품 업로드 시 가장먼저 저장되는 정보(상태, 쇼핑몰, 링크)까지 저장하는 api 입니다.
         처음 호출하기 때문에 create를 활용하여 설정하였습니다.
         * 이 api 가 호출되는 시점에 crawling server에 요청을 보냅니다.
-        * 특히 새로 등록할 때 호출되기 때문에 이전에 임시저장했던 상품은 임시저장 해제합니다.
+        * 특히 새로 등록할 때 호출되기 때문에 이전에 임시저장했던 상품은 삭제합니다.
         api : POST api/v1/product/
 
         data : ""receipt_image_key(str)", "condition(int)", "shopping_mall(int)", "product_url(str)"
@@ -113,8 +119,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         # temp data reset
         if temp_products.exists():
             for temp_product in temp_products:
-                temp_product.temp_save = False
-                temp_product.save()
+                temp_product.delete()  # temp saved data delete
 
         # save here
         serializer = self.get_serializer(data=data)
@@ -149,7 +154,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         # 그 외인 경우 해당 api 호출 후 상세정보 입력 페이지지로
         product_info_serializer = ProductUploadDetailInfoSerializer(product)
 
-        return Response(product_info_serializer.data, status=status.HTTP_206_PARTIAL_CONTENT)
+        return Response(product_info_serializer.data, status=status.HTTP_201_CREATED)
 
     @action(methods=['put'], detail=True)
     def receipt(self, request, *args, **kwargs):
@@ -246,24 +251,13 @@ class ProductViewSet(viewsets.GenericViewSet,
         # purchased time 을 int 로 받기 위해 valid 이후 data 추가함. (TODO: better code!)
         data.update(purchased_year=data.pop('purchased_year', None))
         data.update(purchased_month=data.pop('purchased_month', None))
-        data.update(temp_save=False) # 임시 저장은 해제해야함
+        data.update(temp_save=False)  # 임시 저장은 해제해야함
+        data.update(possible_upload=True)
 
         if not obj.crawl_product_id:
-            # 구매내역 업로드 인 경우 or 크롤링 실패 한 경우
+            # 크롤링 실패 한 경우 or 크롤링 할 수 없는 사이트인 경우 피드에 노출됨 possible_upload=True, crawl_product_id = None
 
             product = serializer.update(obj, data)
-
-            # 구매 내역이 있는 경우 업로드 요청.
-            # if obj.receipt:
-            #     upload_req = ProductUploadRequest.objects.create(product=product)
-            #     left_count = ProductUploadRequest.objects.filter(is_done=False).count()
-            #     slack_message("[업로드 요청] \n [요청id:{}] -상품명:{}, -신청자:{} || 남은개수 {} ({})".
-            #                   format(upload_req.id, product.name, request.user, left_count,
-            #                          timezone.now().strftime('%y/%m/%d %H:%M')),
-            #                   'upload_request')
-
-            # 크롤링 실패한 상황에서 최종 업로드 요청시 알림.
-            # if not obj.crawl_product_id:
 
             crawl_failed_upload_req = ProductCrawlFailedUploadRequest(product=product)
             left_count = ProductCrawlFailedUploadRequest.objects.filter(is_done=False).count()
@@ -273,15 +267,15 @@ class ProductViewSet(viewsets.GenericViewSet,
                                  timezone.now().strftime('%y/%m/%d %H:%M')),
                           'crawl_error_upload')
 
-            return Response(status=status.HTTP_206_PARTIAL_CONTENT)
-
         else:
             # 구매내역이 없는 경우(직접 업로드) 또는 크롤링 성공한 경우
-            # 이 경우만 메인에 노출됨
-            data.update(possible_upload=True)
-            serializer.update(obj, data)
+            # 이 경우만 메인에 노출됨  possible_upload=True, crawl_product_id exists
+            product = serializer.update(obj, data)
 
-            return Response(status=status.HTTP_206_PARTIAL_CONTENT)
+        # Thumbnail image 따로 저장
+        ProdThumbnail.objects.create(product=product)
+
+        return Response(status=status.HTTP_206_PARTIAL_CONTENT)
 
     @action(methods=['get'], detail=False)
     def temp_data(self, request, *args, **kwargs):
@@ -317,9 +311,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         if not queryset.exists():
             return Response(status=status.HTTP_404_NOT_FOUND)
 
-        temp_product = queryset.last()
-        temp_product.temp_save = False
-        temp_product.save()
+        queryset.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def retrieve(self, request, *args, **kwargs):
@@ -333,7 +325,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         user = request.user
 
         # 판매자인 경우 count 하지 않음.
-        if user == product.seller:
+        if user != product.seller:
             views, _ = ProductViews.objects.get_or_create(product=product)
             views.count = views.count + 1
             views.save()
