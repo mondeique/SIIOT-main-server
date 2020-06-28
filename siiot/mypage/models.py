@@ -6,8 +6,8 @@ from products.category.models import Bank
 
 class DeliveryPolicy(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='delivery_policy', on_delete=models.CASCADE)
-    general = models.IntegerField(verbose_name='일반')
-    mountain = models.IntegerField(verbose_name='산간지역')
+    general = models.IntegerField(verbose_name='일반', default=3000)
+    mountain = models.IntegerField(verbose_name='산간지역', default=5000)
 
 
 class Address(models.Model):
@@ -29,7 +29,7 @@ class Address(models.Model):
         주소를 string 형태로 제공하기 위해 사용합니다.
         :return:
         """
-        return self.Addr + self.detailAddr
+        return '({}) {} {}'.format(self.zipNo, self.Addr, self.detailAddr)
 
 
 class Accounts(models.Model):

@@ -37,8 +37,8 @@ class TradeCancelLog(models.Model):
 
 class SalesApproval(models.Model):
     """
-    판매자가 판매 승인시 사용하는 모델입니다.
-    이 모델이 생성되어야 구매자의 주소확인이 가능하고, 채팅방이 생성됩니다. Delivery object 를 생성할 수 있습니다.
+    판매자가 판매 승인에 사용하는 모델입니다.
+    승인이 되어야 구매자의 주소확인이 가능하고, 채팅방이 생성됩니다. Delivery object 를 생성할 수 있습니다.
     """
     deal = models.OneToOneField(Deal, related_name='approval', on_delete=models.CASCADE)
 

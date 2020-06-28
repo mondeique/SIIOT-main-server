@@ -93,6 +93,7 @@ SECONDS_APPS = [
     'products',
     'crawler',
     'mypage',
+    'payment',
     # 'api',
     # 'notice',
     # 'landing',

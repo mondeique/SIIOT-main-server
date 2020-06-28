@@ -61,7 +61,7 @@ class Product(models.Model):
 
     # category
     category = models.ForeignKey(SecondCategory, on_delete=models.SET_NULL, null=True, blank=True,
-                                 help_text="카테고리 참고 모델입니다. 카테고리 모델은 조합마다 하나만 생성됩니다,")
+                                 help_text="카테고리 참고 모델입니다. SecondCategory만 참고합니다.")
     color = models.ForeignKey(Color, on_delete=models.SET_NULL, null=True, blank=True, related_name="products")
     size = models.ForeignKey(Size, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
     

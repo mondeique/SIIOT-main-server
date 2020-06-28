@@ -5,6 +5,8 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.conf import settings
 
+from products.models import Product
+
 
 class Commission(models.Model):
     rate = models.FloatField(verbose_name='수수료', validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])
@@ -70,7 +72,7 @@ class Deal(models.Model):  # 돈 관련 (스토어 별로)
         (2, '결제완료'),  # payment/done/ 처리시 바뀜 = 배송전 , noti 날려주기.
         (3, '판매승인'),  # seller 승인시, 이 전에 결제 취소 가능, 이 이후에는 결제취소 요청
         (4, '운송장입력완료'),  # 운송장번호 입력시 바꿔줌. 배송중과 동일한 상태
-        (5, '거래완료'),  # 셀러한테 noti 날려주기. // 리뷰남겼을떄, 운송장 번호 5일 후 (자동구매확정)
+        (5, '거래완료'),  # 셀러한테 noti 날려주기. // 리뷰남겼을떄, 판매승인 7일 후 (자동구매확정)
         (6, '정산완료'),  # 정산처리 후 admin 필요
         (-1, '결제취소신청'),  # 배송준비중인 상태에서 취소요청
         (-2, '결제취소'),  # 결제취소/ 결제취소요청 승인
@@ -108,38 +110,13 @@ class Deal(models.Model):  # 돈 관련 (스토어 별로)
         else:
             return False
 
-    def save(self, *args, **kwargs):
-        self._transaction_completed()
-        self._check_settlable()
-        self._sync_refund_wallet()
-        super(Deal, self).save(*args, **kwargs)
-
-    def _transaction_completed(self):
-        # 리뷰 남겼을 때 status = 5 / 운송장 번호 입력 후 5일 지났을 때 처리 불가 -> trade의 property로 처리
-        if self.status == 5:
-            self.delivery.states = 'step6'
-            self.trade_set.update(status=5)
-
-    def _check_settlable(self):
-        # walletlog 의 is_settled 가 바뀔때 같이 호출됨
-        if self.is_settled:
-            # 5(거래완료)는 리뷰 작성시 or 운송장 번호 입력 후 5일 이후
-            if self.settable:
-                self.status = 6 # deal: 정산완료
-                self.trade_set.update(status=6) # trade: 정산완료
-                self.remain = 0
-            else:
-                raise Exception('Cannot be settle before confirm trade')
-
-    def _sync_refund_wallet(self):
-        if self.status == -3:
-            self.walletlog.status=-3
-            self.walletlog.save()
+    # def save(self, *args, **kwargs):
+    #     super(Deal, self).save(*args, **kwargs)
 
 
 class Trade(models.Model):  # 카트, 상품 하나하나당 아이디 1개씩
     """
-    결제시 각 상품에 대해 관리하기 위해 만들었습니다.
+    장바구니 기능 및 결제시 각 상품에 대해 관리하기 위해 만들었습니다.
     추후 부분 결제 취소시 해당 obj 의 상태를 변경하면 됩니다.
     TODO: STATUS 변경
     """
@@ -165,25 +142,25 @@ class Trade(models.Model):  # 카트, 상품 하나하나당 아이디 1개씩
     updated_at = models.DateTimeField(auto_now=True, help_text="카트 수정 시각")
     # todo: status : 결제, 배송, success, refund
 
-    @property
-    def settable(self):
-        """
-        정산 가능 여부 , 거래 완료 여부
-        """
-        deal = self.deal
-        if not hasattr(deal, 'delivery'):
-            print('asdasd')
-        else:
-            completed_date = deal.delivery.number_created_time
-        if self.status == 5:
-            return True
-        elif self.status in [2, 3, 4] and completed_date:
-            if completed_date + timedelta(days=5) < datetime.now():
-                return True
-            else:
-                return False
-        else:
-            return False
+    # @property
+    # def settable(self):
+    #     """
+    #     정산 가능 여부 , 거래 완료 여부
+    #     """
+    #     deal = self.deal
+    #     if not hasattr(deal, 'delivery'):
+    #         print('asdasd')
+    #     else:
+    #         completed_date = deal.delivery.number_created_time
+    #     if self.status == 5:
+    #         return True
+    #     elif self.status in [2, 3, 4] and completed_date:
+    #         if completed_date + timedelta(days=5) < datetime.now():
+    #             return True
+    #         else:
+    #             return False
+    #     else:
+    #         return False
 
 
 class TradeLog(models.Model):
@@ -192,7 +169,7 @@ class TradeLog(models.Model):
         (2, '결제완료'),  # payment/done/ 처리시 바뀜 = 배송전 , noti 날려주기.
         (3, '배송중'),  # 운송장번호 입력시 바꿔줌
         (4, '배송완료'),
-        (5, '거래완료'),  # 셀러한테 noti 날려주기. // 리뷰남겼을떄, 운송장 번호 5일 후 (자동구매확정)
+        (5, '거래완료'),  # 셀러한테 noti 날려주기. // 리뷰남겼을떄, 판매승인 7일 후 (자동구매확정)
         (6, '정산완료'),  # 정산처리 후 admin 필요
         (-1, '환불신청'),
         (-2, '환불승인'),
@@ -208,10 +185,10 @@ class TradeLog(models.Model):
 
 class TradeErrorLog(models.Model):
     """
-    결제 시 판매 완료 상품 정보 기록하는 모델입니다.
+    상품 결제 시 에러 로그 저장.
     """
     STATUS = [
-        (1, 'get_payform'),
+        (1, 'payform'),
         (2, 'confirm'),
         (3, 'done'),
         (0, 'other'),
@@ -234,6 +211,7 @@ class PaymentErrorLog(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
     created_at = models.DateTimeField(auto_now_add=True)
     temp_payment = models.ForeignKey(Payment, null=True, blank=True, on_delete=models.SET_NULL)
+    description = models.CharField(max_length=100)
 
 
 class WalletLog(models.Model):
@@ -260,27 +238,27 @@ class WalletLog(models.Model):
         verbose_name_plural = "정산 관리"
 
     def save(self, *args, **kwargs):
-        self._check_deal_status()
+        # self._check_deal_status()
         super(WalletLog, self).save(*args, **kwargs)
 
-    def _check_deal_status(self):
-        from user_activity.models import UserActivityReference, UserActivityLog
-
-        if self.is_settled:
-            deal = self.deal
-            if deal.status == 6 or deal.is_settled:
-                raise Exception('정산이 불가한 상태입니다.')
-            elif deal.settable:
-
-                # activity 생성을 위함
-                reference = UserActivityReference.objects.get_or_create(deal=deal)
-                print(reference)
-                self.status = 2
-                self.deal.is_settled = True
-                self.deal.save()
-
-                # 정산 완료시 알림
-                UserActivityLog.objects.get_or_create(user=deal.seller, status=203, reference=reference)
-
-            else:
-                raise Exception('정산이 불가한 상태입니다.')
+    # def _check_deal_status(self):
+    #     from user_activity.models import UserActivityReference, UserActivityLog
+    #
+    #     if self.is_settled:
+    #         deal = self.deal
+    #         if deal.status == 6 or deal.is_settled:
+    #             raise Exception('정산이 불가한 상태입니다.')
+    #         elif deal.settable:
+    #
+    #             # activity 생성을 위함
+    #             reference = UserActivityReference.objects.get_or_create(deal=deal)
+    #             print(reference)
+    #             self.status = 2
+    #             self.deal.is_settled = True
+    #             self.deal.save()
+    #
+    #             # 정산 완료시 알림
+    #             UserActivityLog.objects.get_or_create(user=deal.seller, status=203, reference=reference)
+    #
+    #         else:
+    #             raise Exception('정산이 불가한 상태입니다.')

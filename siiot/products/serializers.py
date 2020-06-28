@@ -11,7 +11,7 @@ import math
 from core.utils import get_age_fun
 from crawler.models import CrawlProduct
 from mypage.serializers import SimpleSellerInfoSerializer, DeliveryPolicyInfoSerializer
-from products.models import Product, ProductImages, ProductLike
+from products.models import Product, ProductImages, ProductLike, ProdThumbnail
 from products.supplymentary.models import PurchasedReceipt, PurchasedTime
 from products.utils import check_product_url
 
@@ -455,6 +455,12 @@ class ReceiptSaveSerializer(serializers.ModelSerializer):
         fields = ['receipt_image_key']
 
 
+class ProdThumbnailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProdThumbnail
+        fields = ['thumbnail', ]
+
+
 class ProductImageSaveSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImages
@@ -464,7 +470,7 @@ class ProductImageSaveSerializer(serializers.ModelSerializer):
 class ProductImagesRetrieveSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImages
-        fields = ('image_key', )
+        fields = ['image_key', ]
 
 
 class LikeSerializer(serializers.ModelSerializer):
