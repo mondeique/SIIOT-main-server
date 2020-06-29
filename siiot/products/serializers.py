@@ -1,13 +1,4 @@
-import uuid
-
-from django.conf import settings
-from django.db.models import Avg
 from rest_framework import serializers, exceptions
-from django.contrib.auth import authenticate
-from rest_framework.authtoken.models import Token
-from django.utils.translation import ugettext_lazy as _
-from django.utils import timezone
-import math
 from core.utils import get_age_fun
 from crawler.models import CrawlProduct
 from mypage.serializers import SimpleSellerInfoSerializer, DeliveryPolicyInfoSerializer

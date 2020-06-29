@@ -6,6 +6,8 @@ from accounts.models import User, Profile
 from rest_framework.authtoken.models import Token
 from django.utils.translation import ugettext_lazy as _
 
+from accounts.utils import create_token
+
 
 class SignupSerializer(serializers.ModelSerializer):
     class Meta:
@@ -156,12 +158,17 @@ class ChatUserInfoSerializer(serializers.ModelSerializer):
 
 class UserInfoSerializer(serializers.ModelSerializer):
     seller_registered = serializers.SerializerMethodField()
+    token = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'seller_registered']
+        fields = ['id', 'seller_registered', 'token']
 
     def get_seller_registered(self, user):
         if hasattr(user, 'accounts'):
             return True
         return False
+
+    def get_token(self, user):
+        token = create_token(Token, user)
+        return token.key

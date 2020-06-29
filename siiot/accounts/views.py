@@ -46,7 +46,7 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         추가로 유저의 환불계좌 입력 유무에 따라 업로드 시 client 에서 띄워주는 페이지가 다름
         api: POST accounts/v1/check_userinfo/
         :param request: header token or not
-        :return:
+        :return: id, seller_registered, token
         200 : 해당 토큰을 가진 유저가 존재할 때
         401 : 해당 토큰을 가진 유저가 존재하지 않거나 토큰을 담아서 주지 않았을 때
         """
@@ -94,9 +94,9 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         user.nickname = set_random_nickname(get_user_model())
         user.save()
 
-        token = create_token(self.token_model, user)
+        serializer = UserInfoSerializer(user)
 
-        return Response({'token': token.key}, status=status.HTTP_201_CREATED)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def _login(self):
         user = self.serializer.validated_data['user']
@@ -114,11 +114,12 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
             self.serializer = self.get_serializer(data=request.data)
             self.serializer.is_valid(raise_exception=True)
             self._login()
-            token = self.serializer.validated_data['token']
+            user = self.serializer.validated_data['user']
         except CredentialException:
             return Response({"non_field_errors": ['Unable to log in with provided credentials.']},
                             status=status.HTTP_400_BAD_REQUEST)
-        return Response({'token': token}, status=status.HTTP_200_OK)
+        serializer = UserInfoSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(methods=['post'], detail=False, url_name='logout')
     def logout(self, request):
@@ -181,9 +182,9 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        token = create_token(self.token_model, user)
+        serializer = UserInfoSerializer(user)
 
-        return Response({'token': token.key}, status=status.HTTP_206_PARTIAL_CONTENT)
+        return Response(serializer.data, status=status.HTTP_206_PARTIAL_CONTENT)
 
 
 class NicknameViewSet(viewsets.GenericViewSet, mixins.UpdateModelMixin):
