@@ -13,12 +13,13 @@ from rest_framework import viewsets, mixins
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 # Create your views here.
-from accounts.models import User, PhoneConfirm
+from accounts.models import User, PhoneConfirm, Profile
 from accounts.serializers import LoginSerializer, SignupSerializer, CredentialException, NicknameSerializer, \
     ResetPasswordSerializer, UserInfoSerializer
 from accounts.sms.signature import simple_send
 from accounts.sms.utils import SMSManager
 from accounts.utils import create_token, set_random_nickname
+from mypage.models import DeliveryPolicy
 
 
 class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
@@ -93,6 +94,10 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         # default random nickname
         user.nickname = set_random_nickname(get_user_model())
         user.save()
+
+        # default info create
+        Profile.objects.get_or_create(user=user)
+        DeliveryPolicy.objects.get_or_create(user=user)
 
         serializer = UserInfoSerializer(user)
 
