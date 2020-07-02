@@ -57,44 +57,51 @@ class ProductMainSerializer(serializers.ModelSerializer):
     """
     상품 메인페이지 및 찜한 상품 조회에 사용하는 serializer 입니다.
     """
-    discount_rate = serializers.SerializerMethodField()
     thumbnail_image_url = serializers.SerializerMethodField(read_only=True)
     int_price = serializers.SerializerMethodField(read_only=True)
     is_owner = serializers.SerializerMethodField()
+    has_receipt = serializers.SerializerMethodField()
+
+    # for develop
+    price = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = ['id',
                   'name',
-                  'discount_rate',
                   'thumbnail_image_url',
-                  'int_price',
                   'price',
+                  'int_price',
+                  'has_receipt',
                   'is_owner']
 
-
     @staticmethod
-    def get_discount_rate(obj):
+    def get_has_receipt(obj):
+        if obj.receipt:
+            return True
+        return False
+
+    def get_int_price(self, obj):
         if not obj.crawl_product_id:
             return None
-        crawl_price = CrawlProduct.objects.get(id=obj.crawl_product_id).int_price
-        price = obj.price
-        rate = round(abs(crawl_price - price) / crawl_price, 2) * 100
-        if crawl_price - price > 0:
-            return rate
-        return None
+        return CrawlProduct.objects.get(id=obj.crawl_product_id).int_price
+
+    def get_price(self, obj):
+        if obj.price:
+            return obj.price
+        return 999
 
     @staticmethod
     def get_thumbnail_image_url(obj):
         if not obj.crawl_product_id:
-            return obj.images.first().image_url
+            if hasattr(obj, 'prodthumbnail'):
+                return obj.prodthumbnail.image_url
+            # for develop
+            try:
+                return obj.images.first().image_url
+            except:
+                return 'https://pepup-storage.s3.ap-northeast-2.amazonaws.com/008914fd-1b16-45ac-a9a7-0c94427bcf47.jpg'
         return CrawlProduct.objects.get(id=obj.crawl_product_id).thumbnail_image_url
-
-    @staticmethod
-    def get_int_price(obj):
-        if not obj.crawl_product_id:
-            return None
-        return CrawlProduct.objects.get(id=obj.crawl_product_id).int_price
 
     def get_is_owner(self, obj):
         user = self.context['request'].user

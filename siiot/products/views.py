@@ -1,3 +1,4 @@
+import time
 import uuid
 
 from django.db import transaction
@@ -18,7 +19,7 @@ from products.category.models import FirstCategory, SecondCategory, Size, Color,
 from products.category.serializers import FirstCategorySerializer, SecondCategorySerializer, SizeSerializer, \
     ColorSerializer, BankListSerializer
 from products.models import Product, ProductImages, ProductUploadRequest, ProductViews, ProductCrawlFailedUploadRequest, \
-    ProductLike, ProdThumbnail
+    ProductLike, ProdThumbnail, ProductStatus
 # ProductLike
 from products.reply.serializers import ProductRepliesSerializer
 from products.serializers import ProductFirstSaveSerializer, ReceiptSaveSerializer, ProductSaveSerializer, \
@@ -30,6 +31,7 @@ from products.slack import slack_message
 from products.supplymentary.serializers import ShoppingMallDemandSerializer
 from products.utils import crawl_request, check_product_url
 from core.pagination import SiiotPagination
+from user_activity.models import RecentlyViewedProduct
 
 
 class ProductViewSet(viewsets.GenericViewSet,
@@ -46,7 +48,7 @@ class ProductViewSet(viewsets.GenericViewSet,
     유저가 상품 업로드 시 임시저장을 구현하기 위해 처음 저장정보(condition, shopping mall, link) 업로드시에만
     POST method 로 api를 구현하였고, 
     나머지 (ex: receipt 첨부, image 첨부, 가격 및 카테고리 등)의 경우 업데이트 개념으로 PUT method를 사용하였습니다.
-    특히, receipt 와 image 첨부의 경우 다른 api로 구현한 상태입니다.
+    특히, receipt 첨부의 경우 다른 api로 구현한 상태입니다.
     """
 
     def get_serializer_class(self):
@@ -126,6 +128,9 @@ class ProductViewSet(viewsets.GenericViewSet,
         serializer.is_valid(raise_exception=True)
         product = serializer.save()
 
+        # status save
+        ProductStatus.objects.get_or_create(product=product)
+
         if receipt:
             serializer = ReceiptSaveSerializer(data=receipt)
             serializer.is_valid(raise_exception=True)
@@ -139,19 +144,27 @@ class ProductViewSet(viewsets.GenericViewSet,
                 CrawlProduct.objects.filter(product_url=product_url).last().detail_images.exists():
             crawl_product_id = CrawlProduct.objects.filter(product_url=product_url).last().id
         else:
-            sucess, id = crawl_request(product_url)
-            if sucess:
-                crawl_product_id = id
+            start = time.time()
+            # sucess, id = crawl_request(product_url)
+            end = time.time() - start
+            if end > 5: # 5초 이상 걸린 경우 slack noti
+                slack_message("[크롤링 5초이상 지연] \n 걸린시간 {}s, 요청 url: {}".
+                              format(end, product_url), 'crawl_error_upload')
             else:
+                slack_message("[크롤링 성공] \n 걸린시간 {}s, 요청 url: {}".
+                              format(end, product_url), 'crawl_error_upload')
+            # if sucess:
+            #     crawl_product_id = id
+            # else:
                 # crawling 실패했을 경우 또는 서버 에러
-                crawl_product_id = None
-
+            crawl_product_id = None
+            print(time.time()-start)
         # product crawl id save
         product.crawl_product_id = crawl_product_id
         product.save()
 
         # 미개봉 상품인 경우, 해당 api 호출 후 구매내역 첨부하는 페이지로..
-        # 그 외인 경우 해당 api 호출 후 상세정보 입력 페이지지로
+        # 그 외인 경우 해당 api 호출 후 상세정보 입력 페이지로
         product_info_serializer = ProductUploadDetailInfoSerializer(product)
 
         return Response(product_info_serializer.data, status=status.HTTP_201_CREATED)
@@ -182,6 +195,7 @@ class ProductViewSet(viewsets.GenericViewSet,
     @action(methods=['put'], detail=True)
     def images(self, request, *args, **kwargs):
         """
+        [DEPRECATED] 이미지 임시저장 하지 않으면서 해당 api 는 complete로 통합됨.
         상품 이미지 저장 시 사용하는 api 입니다. * 저장하는 (유저가 선택한) 사진의 uuid 만 주어야 합니다.
         api : PUT api/v1/product/{id}/images/
 
@@ -244,28 +258,42 @@ class ProductViewSet(viewsets.GenericViewSet,
         """
         data = request.data.copy()
         obj = self.get_object()
-
+        image_key_list = data.get('image_key')
         serializer = self.get_serializer(obj, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+
         # purchased time 을 int 로 받기 위해 valid 이후 data 추가함. (TODO: better code!)
         data.update(purchased_year=data.pop('purchased_year', None))
         data.update(purchased_month=data.pop('purchased_month', None))
         data.update(temp_save=False)  # 임시 저장은 해제해야함
         data.update(possible_upload=True)
 
+        # image save
+        if not image_key_list or not isinstance(image_key_list, list):
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+        bulk_create_list = []
+        # image bulk create.. TODO : refac with serialzier
+        for key in image_key_list:
+            bulk_create_list.append(ProductImages(
+                product=obj,
+                image_key=key
+            ))
+        ProductImages.objects.bulk_create(bulk_create_list)
+
         if not obj.crawl_product_id:
             # 크롤링 실패 한 경우 or 크롤링 할 수 없는 사이트인 경우 피드에 노출됨 possible_upload=True, crawl_product_id = None
 
             product = serializer.update(obj, data)
 
-            crawl_failed_upload_req = ProductCrawlFailedUploadRequest(product=product)
-            left_count = ProductCrawlFailedUploadRequest.objects.filter(is_done=False).count()
-
-            slack_message("[(크롤링 실패)업로드 요청] \n [요청id:{}] -상품명:{}, -신청자:{} || 남은개수 {} ({})".
-                          format(crawl_failed_upload_req.id, product.name, request.user, left_count,
-                                 timezone.now().strftime('%y/%m/%d %H:%M')),
-                          'crawl_error_upload')
+            # crawl_failed_upload_req = ProductCrawlFailedUploadRequest(product=product)
+            # left_count = ProductCrawlFailedUploadRequest.objects.filter(is_done=False).count()
+            #
+            # slack_message("[(크롤링 실패)업로드 요청] \n [요청id:{}] -상품명:{}, -신청자:{} || 남은개수 {} ({})".
+            #               format(crawl_failed_upload_req.id, product.name, request.user, left_count,
+            #                      timezone.now().strftime('%y/%m/%d %H:%M')),
+            #               'crawl_error_upload')
 
         else:
             # 구매내역이 없는 경우(직접 업로드) 또는 크롤링 성공한 경우
@@ -329,6 +357,7 @@ class ProductViewSet(viewsets.GenericViewSet,
             views, _ = ProductViews.objects.get_or_create(product=product)
             views.count = views.count + 1
             views.save()
+            RecentlyViewedProduct.objects.update_or_create(user=user, product=product)
 
         return super(ProductViewSet, self).retrieve(request, *args, **kwargs)
 
@@ -391,7 +420,7 @@ class ProductViewSet(viewsets.GenericViewSet,
     def likes(self, request, *args, **kwargs):
         """
         찜한 상품들을 조회하는 API 입니다.
-        api: GET api/v1/product/likes/
+        api: GET api/v1/product/likes/?filter=int/
 
         :return:
         404 : 해당 유저가 존재하지 않을 경우
@@ -624,3 +653,51 @@ class S3ImageUploadViewSet(viewsets.GenericViewSet):
         content_type = "image/jpeg"
         data = {"url": url, "image_key": image_key, "content_type": content_type, "key": key}
         return data
+
+
+class SearchViewSet(viewsets.ModelViewSet):
+    pass
+
+
+class MainViewSet(viewsets.ModelViewSet):
+    queryset = Product.objects\
+        .filter(is_active=True)\
+        .filter(status__sold=False, status__hiding=False)\
+        .select_related('seller', 'color', 'size', 'category', 'purchased_time')\
+        .select_related('prodthumbnail', 'views')\
+        .prefetch_related('images')
+    serializer_class = ProductMainSerializer
+    permission_classes = [AllowAny, ]
+
+    @action(methods=['get'], detail=False)
+    def recently_viewed(self, request, *args, **kwargs):
+        user = request.user
+        # siiot_pick_queryset = qs.filter(crawl_product_id__isnull=False).order_by('-pk')[:10]
+        # popular_queryset = qs.filter(views__isnull=False).order_by('-views__count')[:10]
+
+        if hasattr(user, 'recently_viewed_products') and user.recently_viewed_products.all().count() > 3:
+            recently_viewed_queryset = user.recently_viewed_products.all().order_by('-created_at')[:5]
+
+            serializer = self.get_serializer(recently_viewed_queryset, many=True)
+
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def list(self, request, *args, **kwargs):
+        qs = self.get_queryset()
+        new_crawled_qs = qs.filter(crawl_product_id__isnull=False).order_by('-created_at')[:10]
+
+        # to evaluate queryset to queryset slice
+        new_crawled_qs_ids = list(new_crawled_qs.values_list('pk', flat=True))
+
+        other_qs = qs.exclude(id__in=new_crawled_qs_ids).order_by('-created_at')
+
+        # to queryset chaining with each ordering
+        custom_qs = list(new_crawled_qs) + list(other_qs)
+
+        paginator = SiiotPagination()
+        page = paginator.paginate_queryset(queryset=custom_qs, request=request)
+        products_serializer = self.get_serializer(page, many=True, context={'request': request})
+        return paginator.get_paginated_response(products_serializer.data)
+

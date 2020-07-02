@@ -6,7 +6,7 @@ from django.utils.safestring import mark_safe
 from crawler.models import CrawlProduct
 from custom_manage.sites import staff_panel
 from products.category.models import FirstCategory, SecondCategory, Size, Color, Bank
-from products.models import Product, ProductUploadRequest
+from products.models import Product, ProductUploadRequest, ProductStatus, ProdThumbnail
 from products.shopping_mall.models import ShoppingMall
 from products.supplymentary.models import PurchasedReceipt, PurchasedTime
 
@@ -122,10 +122,18 @@ class PurchasedTimeStaffAdmin(admin.ModelAdmin):
 
 
 class BankStaffAdmin(admin.ModelAdmin):
-    list_display = ['id', 'bank', 'is_active' ,'created_at']
+    list_display = ['id', 'bank', 'is_active', 'created_at']
+
+class ProductStatusAdmin(admin.ModelAdmin):
+    list_display = ['id', 'product', 'sold_status', 'sold', 'editing', 'purchasing', 'hiding']
+
+class ProductThumbnailStaffAdmin(admin.ModelAdmin):
+    list_display = ['id', 'product', 'image_url']
 
 
 staff_panel.register(Product, ProductStaffadmin)
+staff_panel.register(ProdThumbnail, ProductThumbnailStaffAdmin)
+staff_panel.register(ProductStatus, ProductStatusAdmin)
 staff_panel.register(ProductUploadRequest, ProductUploadRequestStaffAdmin)
 staff_panel.register(FirstCategory, FirstCategoryStaffAdmin)
 staff_panel.register(SecondCategory, SecondCategoryStaffAdmin)
