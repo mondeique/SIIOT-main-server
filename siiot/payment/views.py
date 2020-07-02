@@ -11,9 +11,6 @@ from django.db.models import F, Sum, Q
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.db import transaction
-from django.db.models import IntegerField
-from django.db.models.functions import Ceil
-
 from delivery.models import Delivery, SalesApproval
 from products.models import Product, ProductStatus
 from .Bootpay import BootpayApi
@@ -28,13 +25,13 @@ from .serializers import (
     PayformSerializer,
     PaymentDoneSerialzier,
     PaymentCancelSerialzier,
-    AddressSerializer, UserNamenPhoneSerializer, DeliveryMemoSerializer, CannotBuyErrorSerializer, PaymentSerializer,
+    AddressSerializer, UserNamenPhoneSerializer, PaymentSerializer,
     TempAddressSerializer, AddressCreateSerializer)
 from .utils import groupbyseller
 
 
 def pay_test(request):
-    return render(request, 'pay_test.html')
+    return render(request, 'payment/pay_test.html')
 
 
 # Cart
@@ -48,8 +45,9 @@ class TradeViewSet(viewsets.GenericViewSet, mixins.DestroyModelMixin):
     @action(methods=['put'], detail=True)
     def bagging(self, request, pk):
         """
+        [DEPRECATED 2020.07.01] for 1차 출시
         장바구니 담은 api 입니다.
-        api: PUT api/v1/trades/{id}/bagging/
+        api: PUT api/v1/trade/{id}/bagging/
         * id: product id
 
         :return 404 not found
@@ -67,10 +65,11 @@ class TradeViewSet(viewsets.GenericViewSet, mixins.DestroyModelMixin):
     @action(methods=['get'], detail=False)
     def cart(self, request):
         """
+        [DEPRECATED 2020.07.01] for 1차 출시
         카트 조회 api 입니다. return status 가 False 인 상품의 경우 판매완료 or 누군가가 구매중, 판매자가 수정 중 인 경우입니다.
         * 장바구니에서 각 상황에 따라 어떻게 보여줄지 구체적인 기획이 필요합니다.
         * 현재 : status 0: 구매가능, 1: 판매완료, 2: 다른 user 구매 중, 3: 판매자 수정 중
-        api: GET api/v1/trades/cart/
+        api: GET api/v1/trade/cart/
 
         """
         buyer = request.user
@@ -83,8 +82,9 @@ class TradeViewSet(viewsets.GenericViewSet, mixins.DestroyModelMixin):
     @action(methods=['post'], detail=False)
     def cancel(self, request):
         """
+        [DEPRECATED 2020.07.01] for 1차 출시
         장바구니 상품 삭제 api
-        api: POST api/v1/trades/cancel/
+        api: POST api/v1/trade/cancel/
 
         data: {trades: list(pk list)}
         """
@@ -98,34 +98,33 @@ class TradeViewSet(viewsets.GenericViewSet, mixins.DestroyModelMixin):
     @action(methods=['post'], detail=False)
     def get_payform(self, request, *args, **kwargs):
         """
-        장바구니에서 구매하기 클릭 시 호출되는 api (결제 폼 생성)
-        api: POST api/v1/trades/get_payform/
+        [DEPRECATED] 장바구니에서 구매하기 클릭 시 호출되는 api (결제 폼 생성)
+        [UPDATED] 상품 디테일 페이지에서 바로 결제 : 호출 시 product 에 해당하는 trade 생성
+        api: POST api/v1/trade/get_payform/
 
-        data: {'trades': list(pk list)}
+        [DEPRECATED] data: {'trades': list(pk list)}
+        [UPDATED]  data: {'product_id' : int}
 
         return
-        * api 호출 시 구매 불가한 상태(판매완료, 결제중, 수정중)인 경우 400 및 noti_title(str) (ex: 'a 상품 외 1건')
+        * api 호출 시 구매 불가한 상태 : 판매완료인 경우 403 forbidden , 수정 중인 경우 406 not acceptable
         """
         buyer = request.user
 
-        trades_id = request.data['trades']
-        trades = self.get_queryset().filter(pk__in=trades_id, status=1)
+        product_id = request.data['product_id']
+        product = get_object_or_404(Product, pk=product_id)
 
-        if not trades:
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        # check status
+        p_status = product.status
+        if p_status.sold:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        if p_status.editing:
+            return Response(status=status.HTTP_406_NOT_ACCEPTABLE)
 
-        unusable_trades = trades.filter(Q(product__status__sold=True)|
-                                        Q(product__status__purchasing=True)|
-                                        Q(product__status__editing=True)|
-                                        Q(product__status__hiding=True))
-        # delete sold trades
-        if unusable_trades.exists():
-            if unusable_trades.count() > 1:
-                noti_title = unusable_trades.first().product.name + '외 ' + unusable_trades.count() + '건'
-            else:
-                noti_title = unusable_trades.first().product.name
-            # unusable_trades.delete()
-            return Response({'noti_title': noti_title}, status=status.HTTP_400_BAD_REQUEST)  # TODO: 추가 기획 필요
+        trade, _ = Trade.objects.get_or_create(
+            product=product,
+            seller=product.seller,
+            buyer=buyer,
+        )
 
         user_info = UserNamenPhoneSerializer(buyer).data
         addresses = buyer.address.filter(recent=True)
@@ -135,26 +134,22 @@ class TradeViewSet(viewsets.GenericViewSet, mixins.DestroyModelMixin):
         else:
             addr = TempAddressSerializer(buyer).data
 
-        trade_serializer = TradeSerializer(trades, many=True)
+        trade_serializer = TradeSerializer(trade)
         ordering_product = groupbyseller(trade_serializer.data)
-        total_price = 0
-        delivery_charge = 0
-        mountain_delivery_charge = 0
 
-        for product in ordering_product:
-            payinfo_data = product.copy()
-            payinfo = payinfo_data.pop('payinfo')
-            total_price = total_price + int(payinfo['total'])
-            delivery_charge = delivery_charge + int(payinfo['delivery_charge'])
-            mountain_delivery_charge = mountain_delivery_charge + int(payinfo['mountain_delivery_charge'])
+        payinfo_data = ordering_product.copy()
+        payinfo = payinfo_data.pop('payinfo')
+        total_price = int(payinfo['total'])
+        delivery_charge = int(payinfo['delivery_charge'])
+        mountain_delivery_charge = int(payinfo['mountain_delivery_charge'])
 
         return Response(
             {"ordering_product": ordering_product,
              "user_info": user_info,
              "address": addr,
-             "price": {"total_price": total_price,
-                       "total_delivery_charge": delivery_charge,
-                       "total_mountain_delivery_charge": mountain_delivery_charge,
+             "price": {"price": total_price,
+                       "delivery_charge": delivery_charge,
+                       "mountain_delivery_charge": mountain_delivery_charge,
                        }
              }
             , status=status.HTTP_200_OK)
@@ -167,14 +162,15 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
 
-    def __init__(self):
-        super(PaymentViewSet, self).__init__()
+    def __init__(self, *args, **kwargs):
+        super(PaymentViewSet, self).__init__(*args, **kwargs)
         self.serializer = None
         self.address = None
         self.payment = None
-        self.request = self.request
-        self.user = self.request.user
+        # self.request = self.request
+        self.user = None
         self.trades = None
+        self.data = None
         self.trades_id = None
 
     def get_access_token(self):
@@ -191,25 +187,34 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         bootpay 결제 시작
         api: POST api/v1/payment/
 
-        :param request: trades(pk list), price(total), address:obj(name, phone, zipNo, Addr, detailAddr), memo, mountain(bool), application_id(int)
+        :param request: trade(pk list), price(total), address:obj(name, phone, zipNo, Addr, detailAddr), memo, mountain(bool), application_id(int)
 
         :return: result {payform}
         """
         data = request.data.copy()
 
-        # self.request = request
-        # self.user = request.user
+        # test for web
+        data = {"trade": [1], "price": 230,
+                "address": {"name":"이름",
+                            "phone": '01032423121',
+                            "zipNo":'12345',
+                            "Addr":'서울시 관악구',
+                            "detailAddr": '302호'},
+                "memo":'',
+                "application_id" : 1}
+        self.data = data
+        self.request = request
+        self.user = request.user
 
         # address 저장 후 str로 변환하여 deal 에서 사용
         self.address = data.pop('address', None)
-        address = self.save_address()
+        address = self.save_address
         address_str = address.address
         data.update(address=address_str)
 
         self.serializer = self.get_serializer(data=data)
         self.serializer.is_valid(raise_exception=True)
-
-        self.trades_id = self.serializer.validated_data('trades')
+        self.trades_id = data['trade']
         self.trades = self.get_queryset().filter(pk__in=self.trades_id, buyer=request.user)
 
         self.check_trades()
@@ -221,15 +226,12 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
             self.create_deals()  # deal 생성과 동시에 상품 상태를 purchasing 으로 바꿈
 
         items = self.trades
-
         serializer = PayformSerializer(self.payment, context={
             'addr': self.serializer.validated_data['address'],
             'application_id': self.serializer.validated_data['application_id'],
             'items': items
         })
-        serializer.is_valid(raise_exception=True)
-
-        return Response({'results': serializer.validated_data}, status=status.HTTP_200_OK)
+        return Response({'results': serializer.data}, status=status.HTTP_200_OK)
 
     @action(methods=['post'], detail=False)
     def confirm(self, request):
@@ -330,13 +332,13 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
                     # walletlog 생성 : 정산은 walletlog를 통해서만 정산
                     for deal in payment.deal_set.all():
-                        WalletLog.objects.create(deal=deal, user=deal.seller)
+                        WalletLog.objects.create(deal=deal, user=deal.seller, amount=deal.remain)
 
                         # 판매 승인 모델 생성
                         SalesApproval.objects.create(deal=deal, due_date=datetime.now()+timedelta(hours=12))
 
                         # todo : 거래내역 확인 및 알림 처리리
-                       # reference = UserActivityReference.objects.create(deal=deal)
+                        # reference = UserActivityReference.objects.create(deal=deal)
                         # activity log 생성 : seller
                         # UserActivityLog.objects.create(user=deal.seller, status=200, reference=reference)
                         # activity log 생성 : buyer
@@ -347,6 +349,7 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
             serializer = PaymentCancelSerialzier(payment, data=result['data'])
             if serializer.is_valid():
                 serializer.save()
+                PaymentErrorLog.objects.create(user=request.user, temp_payment=payment, description='bootpay 결제 실패, 취소 완료')
 
                 # trade : bootpay 환불 완료
                 Trade.objects.filter(deal__payment=payment).update(status=-3)  # 결제되었다가 취소이므로 환불.
@@ -359,6 +362,8 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
                 return Response({'detail': 'canceled'}, status=status.HTTP_200_OK)
 
+        PaymentErrorLog.objects.create(user=request.user, temp_payment=payment,
+                                       description='bootpay 결제 실패 취소 완료! 서버 데이터 집계 안됨. 정산 하면 안됨')
         # todo: http stateless 특성상 데이터 집계가 될수 없을 수도 있어서 서버사이드랜더링으로 고쳐야 함...
         return Response({'detail': ''}, status=status.HTTP_200_OK)
 
@@ -422,7 +427,7 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
                                                   Q(product__status__purchasing=True)|
                                                   Q(product__status__editing=True)|
                                                   Q(product__status__hiding=True))
-        product_ids = Product.objects.filter(trade__in=self.trades, sold=True)
+        product_ids = Product.objects.filter(trade__in=self.trades, status__sold=True)
 
         if sold_products_trades.exists():
             # sold_products_trades.delete()  # 만약 결제된 상품이면, 카트(trades)에서 삭제해야함.
@@ -432,20 +437,24 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
     def get_deal_total_and_delivery_charge(self, seller, trades):
         """
-        셀러별로 묶인 trades 에서 총 금액, 정산금액, 배송비를 계산합니다.
+        [DEPRECATED] 셀러별로 묶인 trades 에서 총 금액, 정산금액, 배송비를 계산합니다.
+        [UPDATED] 한번에 한개의 상품을 구매하는 것으로 변경
         """
         commission_rate = Commission.objects.last().rate  # admin에서 처리
 
-        total_charge = trades.aggregate(total_charge=Sum(F('product__price'))).values('total_charge')
-        if self.serializer.data['mountain']:  # client 에서 도서산간 On 했을 때.
+        total_charge = trades.aggregate(total_charge=Sum(F('product__price')))['total_charge']
+        if self.data.get('mountain', None):  # client 에서 도서산간 On 했을 때.
             delivery_charge = seller.delivery_policy.mountain
+        elif trades.first().product.free_delivery:
+            delivery_charge = 0
         else:
             delivery_charge = seller.delivery_policy.general  # 배송비 할인 없음.
 
         # return
         total = total_charge + delivery_charge,  # 총 결제 금액
         remain = total_charge * (1 - commission_rate) + delivery_charge,  # 정산 금액 : commission rate = 0
-
+        total = int(total[0])
+        remain = int(remain[0])
         return total, remain, delivery_charge
 
     def create_deals(self):
@@ -461,7 +470,7 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
             total, remain, delivery_charge = self.get_deal_total_and_delivery_charge(seller, trades_groupby_seller)
 
             deal = Deal.objects.create(
-                buyer=self.request.user,
+                buyer=self.user,
                 seller=seller,
                 total=total,
                 remain=remain,
@@ -470,11 +479,12 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
             )
 
             bulk_list_delivery.append(Delivery(
-                sender=seller,
-                receiver=self.request.user,
-                address=self.serializer.validated_data['address'],
-                memo=self.serializer.validated_data['memo'],
-                mountain=self.serializer.validated_data['mountain'],
+                # address=self.serializer.validated_data['address'],
+                # address = self.data['address'],
+                # memo=self.serializer.validated_data['memo'],
+                memo = self.data['memo'],
+                # mountain=self.serializer.validated_data['mountain'],
+                # mountain = self.data.get('mountain', None),
                 state=Delivery._BEFORE_INPUT,
                 deal=deal  # 유저가 결제시(한 셀러 샵에서 여러개 상품 구매시 하나의 delivery생성), 배송 정보 기입.
             ))
@@ -483,7 +493,8 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
         # check total sum for seller editing product price during purchasing
         self.check_total_price()
-        self.payment.price = self.serializer.validated_data['price']
+        # self.payment.price = self.serializer.validated_data['price']
+        self.payment.price = self.data['price']
 
         if self.trades.count() > 1:
             self.payment.name = self.trades.first().product.name + ' 외 ' + str(self.trades.count() - 1) + '건'
@@ -492,22 +503,23 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
         self.payment.save()
 
-        ProductStatus.objects.filter(product__trade__in=self.trades).update(purchasing=True)
+        # ProductStatus.objects.filter(product__trade__in=self.trades).update(purchasing=True)
         Delivery.objects.bulk_create(bulk_list_delivery)
 
+    @property
     def save_address(self):
         """
         상품 구매 시 유저가 입력한 배송지 정보를 저장합니다. zipNo 로 이전에 같은 주소가 있으면 업데이트하고, 없으면 생성합니다.
         """
-        address_data = self.request.data.get('address', None)
-        zip_no = address_data.get('zipNo', None)
+        address_data = self.address
+        zip_no = address_data['zipNo']
         address_obj = self.user.address.filter(recent=True, zipNo=zip_no)
 
         if address_obj.exists():
             address_obj = address_obj.last()
-            address_serializer = AddressCreateSerializer(address_obj, data=self.address)
+            address_serializer = AddressCreateSerializer(address_obj, data=address_data, context={'request': self.request})
         else:
-            address_serializer = AddressCreateSerializer(data=self.address)
+            address_serializer = AddressCreateSerializer(data=address_data, context={'request': self.request})
 
         address_serializer.is_valid(raise_exception=True)
         address = address_serializer.save()

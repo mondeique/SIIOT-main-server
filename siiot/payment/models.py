@@ -231,7 +231,8 @@ class WalletLog(models.Model):
     deal = models.OneToOneField(Deal, blank=True, null=True, on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    is_settled = models.BooleanField(default=False)
+    is_settled = models.BooleanField(default=False, help_text='정산시 True')
+    is_possible = models.BooleanField(default=False, help_text='정산 가능 여부입니다. 구매승인시 True')
 
     class Meta:
         verbose_name = "정산 관리"

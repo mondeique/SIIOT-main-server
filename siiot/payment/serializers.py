@@ -18,7 +18,7 @@ class SellerForTradeSerializer(serializers.ModelSerializer):
         fields = ['id', 'nickname', 'profile']
 
     def get_profile(self, obj):
-        return obj.profile.profile_img_url
+        return obj.profile.profile_image_url
 
 
 class PaymentInfoForTrade(serializers.ModelSerializer):
@@ -29,7 +29,7 @@ class PaymentInfoForTrade(serializers.ModelSerializer):
 
 class ProductForTradeSerializer(serializers.ModelSerializer):
     thumbnails = serializers.SerializerMethodField()
-    category = SecondCategorySerializer(allow_null=True)
+    second_category = SecondCategorySerializer(allow_null=True)
     # discounted_price = serializers.SerializerMethodField()
 
     class Meta:
@@ -38,9 +38,9 @@ class ProductForTradeSerializer(serializers.ModelSerializer):
                   'thumbnails', 'size', 'second_category']
 
     def get_thumbnails(self, obj):
-        thumbnails = obj.prodthumbnail
-        if not thumbnails:
+        if not hasattr(obj, 'prodthumbnail'):
             return {"thumbnail": "https://pepup-server-storages.s3.ap-northeast-2.amazonaws.com/static/img/prodthumbnail_default.png"}
+        thumbnails = obj.prodthumbnail
         return ProdThumbnailSerializer(thumbnails).data
 
     # def get_discounted_price(self,obj):
@@ -101,7 +101,7 @@ class DealSerializer(serializers.ModelSerializer):
 
 
 class PaymentSerializer(serializers.Serializer):
-    trades = serializers.ListField()
+    trade = serializers.ListField()
     price = serializers.IntegerField()
     address = serializers.CharField()
     memo = serializers.CharField(allow_blank=True)
@@ -124,10 +124,10 @@ class ItemSerializer(serializers.ModelSerializer):
         return obj.product.name
 
     def get_unique(self, obj):
-        return obj.product.pk
+        return str(obj.product.pk)
 
     def get_price(self, obj):
-        return obj.product.discounted_price
+        return obj.product.price
 
 
 class PayformSerializer(serializers.ModelSerializer):
@@ -196,7 +196,7 @@ class AddressSerializer(serializers.ModelSerializer):
 
 
 class AddressCreateSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(default=serializers.CurrentUserDefault())
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
     class Meta:
         model = Address
@@ -218,9 +218,3 @@ class UserNamenPhoneSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['nickname', 'phone']
-
-
-class DeliveryMemoSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = DeliveryMemo
-        fields = ['memo']
