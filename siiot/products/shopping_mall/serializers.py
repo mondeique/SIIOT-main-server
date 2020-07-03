@@ -5,4 +5,4 @@ from products.shopping_mall.models import ShoppingMall
 class ShoppingMallSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShoppingMall
-        fields = '__all__'
+        fields = ['id', 'name', 'domain', 'image']

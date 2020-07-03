@@ -118,10 +118,10 @@ class ProductViewSet(viewsets.GenericViewSet,
         receipt = data.pop('receipt_image_key', None)
         temp_products = self.get_queryset().filter(seller=user, temp_save=True)
 
-        # temp data reset
-        if temp_products.exists():
-            for temp_product in temp_products:
-                temp_product.delete()  # temp saved data delete
+        # # temp data reset
+        # if temp_products.exists():
+        #     for temp_product in temp_products:
+        #         temp_product.delete()  # temp saved data delete
 
         # save here
         serializer = self.get_serializer(data=data)
@@ -145,7 +145,7 @@ class ProductViewSet(viewsets.GenericViewSet,
             crawl_product_id = CrawlProduct.objects.filter(product_url=product_url).last().id
         else:
             start = time.time()
-            # sucess, id = crawl_request(product_url)
+            sucess, id = crawl_request(product_url)
             end = time.time() - start
             if end > 5: # 5초 이상 걸린 경우 slack noti
                 slack_message("[크롤링 5초이상 지연] \n 걸린시간 {}s, 요청 url: {}".
@@ -153,11 +153,11 @@ class ProductViewSet(viewsets.GenericViewSet,
             else:
                 slack_message("[크롤링 성공] \n 걸린시간 {}s, 요청 url: {}".
                               format(end, product_url), 'crawl_error_upload')
-            # if sucess:
-            #     crawl_product_id = id
-            # else:
+            if sucess:
+                crawl_product_id = id
+            else:
                 # crawling 실패했을 경우 또는 서버 에러
-            crawl_product_id = None
+                crawl_product_id = None
             print(time.time()-start)
         # product crawl id save
         product.crawl_product_id = crawl_product_id
@@ -656,7 +656,58 @@ class S3ImageUploadViewSet(viewsets.GenericViewSet):
 
 
 class SearchViewSet(viewsets.ModelViewSet):
-    pass
+    permission_classes = [AllowAny, ]
+    serializer_class = ProductMainSerializer
+
+    @action(methods=['post'], detail=False)
+    def product(self, request, *args, **kwargs):
+        keyword = request.data.get('keyword', None)
+
+        if len(keyword) < 1:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+        products = Product.objects.filter(name__icontains=keyword, is_active=True)\
+            .filter(status__sold=False, status__hiding=False)\
+            .order_by('-created_at')
+
+        paginator = SiiotPagination()
+        page = paginator.paginate_queryset(products, request)
+        serializer = self.get_serializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+    @action(methods=['post'], detail=False)
+    def searching(self, request, *args, **kwargs):
+        self.keyword = request.data.get('keyword', None)
+        if len(self.keyword) < 1:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        shops = self.search_by_shop()
+        product_count = self.search_by_product()
+        categories = self.search_by_category()
+        searched_data = {}
+        searched_data['shop_result'] = shops
+        searched_data['product_result'] = product_count
+        searched_data['category_result'] = categories
+        return Response(searched_data)
+
+    def search_by_shop(self):
+        shop_queryset = ShoppingMall.objects.prefetch_related('products')\
+            .filter(name__icontains=self.keyword)
+        serializer = ShoppingMallSerializer(shop_queryset, many=True)
+        return serializer.data
+
+    def search_by_category(self):
+        queryset_values = SecondCategory.objects.select_related('product_set')\
+            .filter(name__icontains=self.keyword)\
+            .annotate(product_count=Count('product'))\
+            .values('name', 'id')\
+            .order_by('-product_count')[:5]
+        return queryset_values
+
+    def search_by_product(self):
+        searched_product = Product.objects.filter(name__icontains=self.keyword)\
+            .filter(is_active=True)\
+            .filter(status__sold=False, status__hiding=False)
+        return searched_product.count()
 
 
 class MainViewSet(viewsets.ModelViewSet):

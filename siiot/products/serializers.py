@@ -2,7 +2,10 @@ from rest_framework import serializers, exceptions
 from core.utils import get_age_fun
 from crawler.models import CrawlProduct
 from mypage.serializers import SimpleSellerInfoSerializer, DeliveryPolicyInfoSerializer
+from products.category.serializers import ColorSerializer
 from products.models import Product, ProductImages, ProductLike, ProdThumbnail
+from products.reply.serializers import ProductReplySerializer
+from products.shopping_mall.serializers import ShoppingMallSerializer
 from products.supplymentary.models import PurchasedReceipt, PurchasedTime
 from products.utils import check_product_url
 
@@ -121,16 +124,22 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
     is_receipt = serializers.SerializerMethodField()
     views = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
+    sold = serializers.SerializerMethodField()
 
     images = serializers.SerializerMethodField()
+    crawled_images = serializers.SerializerMethodField()
 
     category = serializers.SerializerMethodField() # category 어떻게 보여줄지?
     size = serializers.SerializerMethodField() # size name!
+    color = serializers.SerializerMethodField()
     size_capture_image = serializers.SerializerMethodField() # 없으면 None
-    purchased_year = serializers.SerializerMethodField()
-    purchased_month = serializers.SerializerMethodField()
+    purchased_time = serializers.SerializerMethodField()
 
-    age = serializers.SerializerMethodField() #ex: 3 days ago
+    shopping_mall = serializers.SerializerMethodField()
+
+    replies = serializers.SerializerMethodField()
+
+    age = serializers.SerializerMethodField()  # ex: 3 days ago
 
     delivery_policy = serializers.SerializerMethodField()
     seller = SimpleSellerInfoSerializer()
@@ -154,12 +163,14 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
                   'free_delivery',
                   'content',
                   'images', #
+                  'crawled_images',
                   'receipt_image_url', #
                   'category', #
                   'size', #
                   'color',
-                  'purchased_year', #
-                  'purchased_month', #
+                  # 'purchased_year', #
+                  'purchased_time', #
+                  'replies',
                   'product_url',
                   'delivery_policy',
                   'seller',
@@ -179,6 +190,11 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_age(obj):
         return get_age_fun(obj)
+
+    @staticmethod
+    def get_sold(obj):
+        status = obj.status
+        return status.sold
 
     @staticmethod
     def get_views(obj):
@@ -227,6 +243,10 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
         return ProductImagesRetrieveSerializer(images, many=True).data
 
     @staticmethod
+    def get_crawled_images(obj):
+        return []
+
+    @staticmethod
     def get_receipt_image_url(obj):
         if obj.receipt:
             return obj.receipt.image_url
@@ -236,7 +256,8 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_category(obj):
         if obj.category:
-            return obj.category.name
+            f_category_name = obj.category.first_category.name
+            return f_category_name + '>' + obj.category.name
         return None
 
     @staticmethod
@@ -246,19 +267,30 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
         return None
 
     @staticmethod
-    def get_purchased_month(obj):
-        if obj.purchased_time:
-            time = obj.purchased_time
-            month = time.month
-            return month
+    def get_color(obj):
+        if obj.color:
+            return ColorSerializer(obj.color).data
         return None
 
     @staticmethod
-    def get_purchased_year(obj):
+    def get_shopping_mall(obj):
+        shopping_mall = obj.shopping_mall
+        return ShoppingMallSerializer(shopping_mall).data
+
+    @staticmethod
+    def get_replies(obj):
+        if hasattr(obj, 'questions'):
+            question = obj.questions.first()
+            return ProductReplySerializer(question).data
+        return None
+
+    @staticmethod
+    def get_purchased_time(obj):
         if obj.purchased_time:
             time = obj.purchased_time
+            month = time.month
             year = time.year
-            return year
+            return str(year) + '년 ' + str(month) + '월'
         return None
 
     @staticmethod
@@ -278,7 +310,7 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
         other_products = Product.objects.filter(is_active=True, possible_upload=True) \
                                .select_related('size', 'size__category', 'seller', 'seller__profile') \
                                .exclude(id=obj.id) \
-                               .filter(seller=seller, sold=False) \
+                               .filter(seller=seller, status__sold=False) \
                                .distinct().order_by('?')[:5]
 
         if not other_products:
@@ -291,7 +323,7 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
         related_products = Product.objects.filter(is_active=True, possible_upload=True, temp_save=False) \
                                .select_related('size', 'size__category', 'seller', 'seller__profile') \
                                .exclude(id=obj.id) \
-                               .filter(category=second_category, sold=False) \
+                               .filter(category=second_category, status__sold=False) \
                                .distinct().order_by('?')[:5]
         if not related_products:
             return []

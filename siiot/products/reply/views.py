@@ -49,7 +49,6 @@ class ProductQuestionViewSet(viewsets.ModelViewSet):
         api: PUT api/v1//reply/question/{id}
         * id: question id
         """
-
         # check permission : IsQuestionWriterPermission (작성자 본인인지 확인하는 permission) 아닐경우 403 forbidden
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=True)
