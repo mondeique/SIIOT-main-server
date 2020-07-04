@@ -4,6 +4,7 @@ import uuid
 from django.db import transaction
 from django.db.models import Case, When, IntegerField, Count
 from django.http import Http404
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from rest_framework.response import Response
@@ -578,6 +579,7 @@ class ProductCategoryViewSet(viewsets.GenericViewSet):
             raise Http404
         queryset = self.get_queryset().filter(first_category=first_category)
         serializer = self.get_serializer(queryset, many=True)
+        print(serializer.data)
         return Response(serializer.data)
 
     @action(methods=['get'], detail=True)
@@ -675,6 +677,32 @@ class SearchViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
 
+    @action(methods=['get'], detail=True)
+    def shopping_mall(self, request, *args, **kwargs):
+        shopping_mall = get_object_or_404(ShoppingMall, pk=kwargs['pk'])
+
+        products = Product.objects.filter(shopping_mall=shopping_mall, is_active=True)\
+            .filter(status__sold=False, status__hiding=False)\
+            .order_by('-created_at')
+
+        paginator = SiiotPagination()
+        page = paginator.paginate_queryset(products, request)
+        serializer = self.get_serializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+    @action(methods=['get'], detail=True)
+    def category(self, request, *args, **kwargs):
+        category = get_object_or_404(SecondCategory, pk=kwargs['pk'])
+
+        products = Product.objects.filter(category=category, is_active=True) \
+            .filter(status__sold=False, status__hiding=False) \
+            .order_by('-created_at')
+
+        paginator = SiiotPagination()
+        page = paginator.paginate_queryset(products, request)
+        serializer = self.get_serializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
     @action(methods=['post'], detail=False)
     def searching(self, request, *args, **kwargs):
         self.keyword = request.data.get('keyword', None)
@@ -684,7 +712,7 @@ class SearchViewSet(viewsets.ModelViewSet):
         product_count = self.search_by_product()
         categories = self.search_by_category()
         searched_data = {}
-        searched_data['shop_result'] = shops
+        searched_data['shopping_mall_result'] = shops
         searched_data['product_result'] = product_count
         searched_data['category_result'] = categories
         return Response(searched_data)
@@ -739,7 +767,7 @@ class MainViewSet(viewsets.ModelViewSet):
         qs = self.get_queryset()
         new_crawled_qs = qs.filter(crawl_product_id__isnull=False).order_by('-created_at')[:10]
 
-        # to evaluate queryset to queryset slice
+        # evaluate queryset to queryset slice
         new_crawled_qs_ids = list(new_crawled_qs.values_list('pk', flat=True))
 
         other_qs = qs.exclude(id__in=new_crawled_qs_ids).order_by('-created_at')

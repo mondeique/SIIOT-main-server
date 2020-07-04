@@ -117,8 +117,10 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
     """
     상품 상세페이지 조회에 사용하는 serializer 입니다.
     """
-    crawl_data = serializers.SerializerMethodField()
-    receipt_image_url = serializers.SerializerMethodField()
+    thumbnail_image_url = serializers.SerializerMethodField()
+    # crawl_data = serializers.SerializerMethodField()
+    int_price = serializers.SerializerMethodField()
+    # receipt_image_url = serializers.SerializerMethodField()
     # name = serializers.SerializerMethodField()
     discount_rate = serializers.SerializerMethodField()
     is_receipt = serializers.SerializerMethodField()
@@ -144,8 +146,8 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
     delivery_policy = serializers.SerializerMethodField()
     seller = SimpleSellerInfoSerializer()
 
-    other_seller_products = serializers.SerializerMethodField()  # def 안에 simple product serializer 활용하여 data return
-    related_products = serializers.SerializerMethodField()  # "
+    # other_seller_products = serializers.SerializerMethodField()  # def 안에 simple product serializer 활용하여 data return
+    # related_products = serializers.SerializerMethodField()  # "
 
     class Meta:
         model = Product
@@ -153,10 +155,12 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
                   'possible_upload', # True 이면 보이고, False 이면 dim 처리
                   'sold',
                   'is_liked',
+                  'thumbnail_image_url',
+                  'int_price',
                   'valid_url', #
                   'age', #
                   'views', #
-                  'crawl_data', #
+                  # 'crawl_data', #
                   'is_receipt', #
                   'shopping_mall',  # 쇼핑몰 로고?
                   'name', 'price', 'discount_rate', #
@@ -164,7 +168,7 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
                   'content',
                   'images', #
                   'crawled_images',
-                  'receipt_image_url', #
+                  # 'receipt_image_url', #
                   'category', #
                   'size', #
                   'color',
@@ -175,9 +179,21 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
                   'delivery_policy',
                   'seller',
                   'size_capture_image',
-                  'other_seller_products',
-                  'related_products'
+                  # 'other_seller_products',
+                  # 'related_products'
                   ]
+
+    @staticmethod
+    def get_thumbnail_image_url(obj):
+        if not obj.crawl_product_id:
+            if hasattr(obj, 'prodthumbnail'):
+                return obj.prodthumbnail.image_url
+            # for develop
+            try:
+                return obj.images.first().image_url
+            except:
+                return 'https://pepup-storage.s3.ap-northeast-2.amazonaws.com/008914fd-1b16-45ac-a9a7-0c94427bcf47.jpg'
+        return CrawlProduct.objects.get(id=obj.crawl_product_id).thumbnail_image_url
 
     @staticmethod
     def get_valid_url(obj):
@@ -203,12 +219,18 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
         return 0
 
     @staticmethod
-    def get_crawl_data(obj):
+    def get_int_price(obj):
         if obj.crawl_product_id:
-            serializer = CrawlDataSerializer(CrawlProduct.objects.get(id=obj.crawl_product_id))
-        else:
-            serializer = TempCrawlDataSerializer(obj)
-        return serializer.data
+            return CrawlProduct.objects.get(id=obj.crawl_product_id).int_price
+        return None
+
+    # @staticmethod
+    # def get_crawl_data(obj):
+    #     if obj.crawl_product_id:
+    #         serializer = CrawlDataSerializer(CrawlProduct.objects.get(id=obj.crawl_product_id))
+    #     else:
+    #         serializer = TempCrawlDataSerializer(obj)
+    #     return serializer.data
 
     def get_is_liked(self, obj):
         user = self.context['request'].user
@@ -226,13 +248,14 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_discount_rate(obj):
-        crawl_price = CrawlProduct.objects.get(id=obj.crawl_product_id).int_price
-        price = obj.price
-        if not price:
-            return None
-        rate = round(abs(crawl_price - price)/crawl_price, 2) * 100
-        if crawl_price - price > 0:
-            return rate
+        if obj.crawl_product_id:
+            crawl_price = CrawlProduct.objects.get(id=obj.crawl_product_id).int_price
+            price = obj.price
+            if not price:
+                return None
+            rate = round(abs(crawl_price - price)/crawl_price, 2) * 100
+            if crawl_price - price > 0:
+                return rate
         return None
 
     @staticmethod
@@ -246,12 +269,12 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
     def get_crawled_images(obj):
         return []
 
-    @staticmethod
-    def get_receipt_image_url(obj):
-        if obj.receipt:
-            return obj.receipt.image_url
-        else:
-            return None
+    # @staticmethod
+    # def get_receipt_image_url(obj):
+    #     if obj.receipt:
+    #         return obj.receipt.image_url
+    #     else:
+    #         return None
 
     @staticmethod
     def get_category(obj):
@@ -279,7 +302,7 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_replies(obj):
-        if hasattr(obj, 'questions'):
+        if obj.questions.exists():
             question = obj.questions.first()
             return ProductReplySerializer(question).data
         return None
@@ -304,44 +327,51 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
     def get_size_capture_image(obj):
         return None
 
-    @staticmethod
-    def get_other_seller_products(obj):
-        seller = obj.seller
-        other_products = Product.objects.filter(is_active=True, possible_upload=True) \
-                               .select_related('size', 'size__category', 'seller', 'seller__profile') \
-                               .exclude(id=obj.id) \
-                               .filter(seller=seller, status__sold=False) \
-                               .distinct().order_by('?')[:5]
-
-        if not other_products:
-            return []
-        return RelatedProductSerializer(other_products, many=True).data
-
-    @staticmethod
-    def get_related_products(obj):
-        second_category = obj.category
-        related_products = Product.objects.filter(is_active=True, possible_upload=True, temp_save=False) \
-                               .select_related('size', 'size__category', 'seller', 'seller__profile') \
-                               .exclude(id=obj.id) \
-                               .filter(category=second_category, status__sold=False) \
-                               .distinct().order_by('?')[:5]
-        if not related_products:
-            return []
-        return RelatedProductSerializer(related_products, many=True).data
+    # @staticmethod
+    # def get_other_seller_products(obj):
+    #     seller = obj.seller
+    #     other_products = Product.objects.filter(is_active=True, possible_upload=True) \
+    #                            .select_related('size', 'size__category', 'seller', 'seller__profile') \
+    #                            .exclude(id=obj.id) \
+    #                            .filter(seller=seller, status__sold=False) \
+    #                            .distinct().order_by('?')[:5]
+    #
+    #     if not other_products:
+    #         return []
+    #     return RelatedProductSerializer(other_products, many=True).data
+    #
+    # @staticmethod
+    # def get_related_products(obj):
+    #     second_category = obj.category
+    #     related_products = Product.objects.filter(is_active=True, possible_upload=True, temp_save=False) \
+    #                            .select_related('size', 'size__category', 'seller', 'seller__profile') \
+    #                            .exclude(id=obj.id) \
+    #                            .filter(category=second_category, status__sold=False) \
+    #                            .distinct().order_by('?')[:5]
+    #     if not related_products:
+    #         return []
+    #     return RelatedProductSerializer(related_products, many=True).data
 
 
 class RelatedProductSerializer(serializers.ModelSerializer):
-    thumbnails = serializers.SerializerMethodField()
+    thumbnail_image_url = serializers.SerializerMethodField()
     size = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = ['id', 'thumbnails', 'size', 'price', 'name']
+        fields = ['id', 'thumbnail_image_url', 'size', 'price', 'name']
 
     @staticmethod
-    def get_thumbnails(obj):
-        c_product = CrawlProduct.objects.get(id=obj.crawl_product_id)
-        return c_product.thumbnail_image_url
+    def get_thumbnail_image_url(obj):
+        if not obj.crawl_product_id:
+            if hasattr(obj, 'prodthumbnail'):
+                return obj.prodthumbnail.image_url
+            # for develop
+            try:
+                return obj.images.first().image_url
+            except:
+                return 'https://pepup-storage.s3.ap-northeast-2.amazonaws.com/008914fd-1b16-45ac-a9a7-0c94427bcf47.jpg'
+        return CrawlProduct.objects.get(id=obj.crawl_product_id).thumbnail_image_url
 
     @staticmethod
     def get_size(obj):

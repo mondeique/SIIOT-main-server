@@ -23,6 +23,7 @@ from drf_yasg import openapi
 from rest_framework.permissions import AllowAny
 
 from custom_manage.sites import staff_panel, superadmin_panel
+from payment.views import pay_test
 
 urlpatterns = [
 
@@ -33,8 +34,10 @@ urlpatterns = [
     path('staff/', include('custom_manage.urls')),
     path('api/v1/', include('products.urls')),
     path('api/v1/', include('mypage.urls')),
+    path('api/v1/', include('payment.urls')),
     path('accounts/v1/', include('accounts.urls')),
     # path('chat/', include('chats.urls')),
+    path('pay_test/', pay_test, name='paytest'),
 
     # ckeditor
     path('ckeditor/', include('ckeditor_uploader.urls')),

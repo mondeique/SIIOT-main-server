@@ -106,7 +106,7 @@ class ProductReplySerializer(serializers.ModelSerializer):
         return not obj.answers.exists()
 
     def get_answers(self, obj):
-        if obj.answers:
+        if obj.answers.exists():
             answers = obj.answers.first()
             return ProductAnswerRetrieveSerializer(answers).data
         return None

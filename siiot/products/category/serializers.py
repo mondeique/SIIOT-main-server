@@ -2,7 +2,6 @@ from rest_framework import serializers, exceptions
 
 from mypage.models import Accounts
 from products.category.models import FirstCategory, SecondCategory, Size, Color, Bank
-from products.shopping_mall.models import ShoppingMall
 
 
 class FirstCategorySerializer(serializers.ModelSerializer):

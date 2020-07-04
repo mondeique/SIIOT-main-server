@@ -7,6 +7,7 @@ from crawler.models import CrawlProduct
 from custom_manage.sites import staff_panel
 from products.category.models import FirstCategory, SecondCategory, Size, Color, Bank
 from products.models import Product, ProductUploadRequest, ProductStatus, ProdThumbnail
+from products.reply.models import ProductQuestion, ProductAnswer
 from products.shopping_mall.models import ShoppingMall
 from products.supplymentary.models import PurchasedReceipt, PurchasedTime
 
@@ -143,4 +144,6 @@ staff_panel.register(ShoppingMall, ShoppingMallStaffAdmin)
 staff_panel.register(PurchasedReceipt, PurchasedReceiptStaffAdmin)
 staff_panel.register(PurchasedTime, PurchasedTimeStaffAdmin)
 staff_panel.register(Bank, BankStaffAdmin)
+staff_panel.register(ProductQuestion)
+staff_panel.register(ProductAnswer)
 
