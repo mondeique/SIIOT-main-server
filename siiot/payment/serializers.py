@@ -167,6 +167,11 @@ class PayformSerializer(serializers.ModelSerializer):
             return ""
 
 
+class PaymentConfirmSerializer(serializers.Serializer):
+    order_id = serializers.IntegerField()
+    receipt_id = serializers.CharField()
+
+
 class PaymentDoneSerialzier(serializers.ModelSerializer):
 
     class Meta:
@@ -214,7 +219,7 @@ class TempAddressSerializer(serializers.ModelSerializer):
         fields = ['name', 'phone', 'zipNo', 'Addr', 'detailAddr']
 
 
-class UserNamenPhoneSerializer(serializers.ModelSerializer):
+class UserNamePhoneSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['nickname', 'phone']

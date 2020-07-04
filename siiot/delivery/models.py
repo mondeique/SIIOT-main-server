@@ -3,9 +3,10 @@ from datetime import timedelta, datetime
 from django.core.validators import MinValueValidator, MaxValueValidator, FileExtensionValidator
 from django.db import models
 from django.conf import settings
+from django.db.models import Sum
 
 from mypage.models import Address
-from payment.models import Deal, Trade
+from payment.models import Deal, Trade, Wallet
 
 """
 배송 전반적인 프로세스를 다룹니다.
@@ -13,13 +14,83 @@ from payment.models import Deal, Trade
 """
 
 
-class TradeCancelLog(models.Model):
+class Transaction(models.Model):
     """
-    각 상품별 구매취소시 생성되는 log 모델입니다. 생성 시 Trade 상태를 구매취소로 변환합니다.
+    판매자가 판매 승인, 구매자가 구매 취소에 사용하는 모델입니다.
+    판매자 승인이 되어야 구매자의 주소확인이 가능하고, 채팅방이 생성됩니다.
+    # TODO : post save로 알림 내역 저장. 알림 내역 저장하면서 푸쉬 알림
+    """
+    STATUS = [
+        (1, '결제완료'),
+        (2, '배송준비(거래중)'),
+        (3, '배송완료'),
+        (4, '거래완료'),
+        (-1, '오류로 인한 결제실패'),
+        (-2, '거래취소'),
+        (-3, '자동거래취소')
+    ]
+    deal = models.OneToOneField(Deal, related_name='transaction', on_delete=models.CASCADE)
+
+    status = models.IntegerField(choices=STATUS, default=1)
+
+    seller_accepted = models.NullBooleanField(help_text="승인 또는 거절을 위한 필드입니다. default=null")
+    seller_reject_reason = models.CharField(null=True, blank=True, max_length=100, help_text='판매 거절 사유입니다. 구매자에게 전달됩니다.')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    due_date = models.DateTimeField(help_text="유효 시간입니다. created_at + 12h로 자동생성 됩니다."
+                                              "유효시간이 지날 경우 cron 에서 체크하여 구매 취소 처리 합니다.")
+
+    buyer_cancel = models.NullBooleanField(help_text='구매자가 구매 취소를 위한 필드입니다.')
+    buyer_cancel_reason = models.CharField(null=True, blank=True, max_length=100, help_text='구매 취소 사유입니다. 판매자에게 전달됩니다.')
+
+    confirm_transaction = models.NullBooleanField(help_text='구매확정 필드입니다. True 로 변환 시 Wallet을 생성합니다.')
+
+    @property
+    def checker(self):
+        """
+        판매자가 accepted 할 수 있는 condition 인지 확인합니다.
+        view 에서 이를 참고하여 is_accepted 의 status 을 처리합니다.
+        """
+        now = datetime.now()
+        diff = now - self.due_date
+        if self.seller_accepted is None and diff <= timedelta(0):
+            return True
+        return False
+
+    @property
+    def cron_checker(self):
+        """
+        deal 생성 이후 12h 이내 승인이 이루어졌는지 check 하는 property 입니다.
+        만약 12h 이내 생성되지 않았다면, 매 시간마다 도는 cron으로 구매 취소 처리 합니다.
+        """
+        now = datetime.now()
+        diff = now - self.due_date
+        if self.seller_accepted or diff <= timedelta(0):
+            return True
+        return False
+
+    def save(self, *args, **kwargs):
+        super(Transaction, self).save(*args, **kwargs)
+        self._create_wallet()
+
+    def _create_wallet(self):
+        if self.confirm_transaction:
+            amount = self.deal.trades.filter(status=1).aggregate(price=Sum('product__price'))['price']
+            Wallet.objects.create(deal=self.deal, seller=self.deal.seller, amount=amount)
+
+
+class TransactionPartialCancelLog(models.Model):
+    """
+    각 상품별 구매취소, 판매 취소시 생성되는 log 모델입니다. 생성 시 Trade 상태를 구매취소로 변환합니다.
     1차 출시에는 판매승인 이전에만 구매취소 할 수 있고, 판매승인 이후에는 구매취소가 불가능합니다.
     """
     trade = models.ForeignKey(Trade, related_name='cancel', on_delete=models.CASCADE)
-    description = models.CharField(null=True, blank=True, max_length=100)
+    transaction = models.ForeignKey(Transaction, related_name='partial_cancels', on_delete=models.CASCADE)
+
+    seller_reject_reason = models.CharField(null=True, blank=True, max_length=100)
+    buyer_reject_reason = models.CharField(null=True, blank=True, max_length=100)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -32,47 +103,7 @@ class TradeCancelLog(models.Model):
     def save(self, *args, **kwargs):
         self.trade.status = -2
         self.trade.save()  # status=-2 결제취소
-        super(TradeCancelLog, self).save(*args, **kwargs)
-
-
-class SalesApproval(models.Model):
-    """
-    판매자가 판매 승인에 사용하는 모델입니다.
-    승인이 되어야 구매자의 주소확인이 가능하고, 채팅방이 생성됩니다. Delivery object 를 생성할 수 있습니다.
-    """
-    deal = models.OneToOneField(Deal, related_name='approval', on_delete=models.CASCADE)
-
-    is_accepted = models.NullBooleanField(help_text="승인 또는 거절을 위한 필드입니다. default=null")
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    due_date = models.DateTimeField(help_text="유효 시간입니다. created_at + 12h로 자동생성 됩니다."
-                                              "유효시간이 지날 경우 cron 에서 체크하여 구매 취소 처리 합니다.")
-
-    @property
-    def checker(self):
-        """
-        판매자가 accepted 할 수 있는 condition 인지 확인합니다.
-        view 에서 이를 참고하여 is_accepted 의 status 을 처리합니다.
-        """
-        now = datetime.now()
-        diff = now - self.due_date
-        if self.is_accepted is None and diff <= timedelta(0):
-            return True
-        return False
-
-    @property
-    def cron_checker(self):
-        """
-        deal 생성 이후 12h 이내 승인이 이루어졌는지 check 하는 property 입니다.
-        만약 12h 이내 생성되지 않았다면, 매 시간마다 도는 cron으로 구매 취소 처리 합니다.
-        """
-        now = datetime.now()
-        diff = now - self.due_date
-        if self.is_accepted or diff <= timedelta(0):
-            return True
-        return False
+        super(TransactionPartialCancelLog, self).save(*args, **kwargs)
 
 
 class Delivery(models.Model):

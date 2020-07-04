@@ -11,12 +11,14 @@ from django.db.models import F, Sum, Q
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.db import transaction
-from delivery.models import Delivery, SalesApproval
+
+from chat.models import ChatRoom
+from delivery.models import Delivery, Transaction
 from products.models import Product, ProductStatus
 from .Bootpay import BootpayApi
 # model
 from .loader import load_credential
-from .models import Payment, Trade, Deal, TradeErrorLog, PaymentErrorLog, WalletLog
+from .models import Payment, Trade, Deal, TradeErrorLog, PaymentErrorLog, Wallet
 from payment.models import Commission
 
 # serializer
@@ -25,8 +27,8 @@ from .serializers import (
     PayformSerializer,
     PaymentDoneSerialzier,
     PaymentCancelSerialzier,
-    AddressSerializer, UserNamenPhoneSerializer, PaymentSerializer,
-    TempAddressSerializer, AddressCreateSerializer)
+    AddressSerializer, PaymentSerializer,
+    TempAddressSerializer, AddressCreateSerializer, UserNamePhoneSerializer, PaymentConfirmSerializer)
 from .utils import groupbyseller
 
 
@@ -117,7 +119,7 @@ class TradeViewSet(viewsets.GenericViewSet, mixins.DestroyModelMixin):
         p_status = product.status
         if p_status.sold:
             return Response(status=status.HTTP_403_FORBIDDEN)
-        if p_status.editing:
+        if p_status.hiding:
             return Response(status=status.HTTP_406_NOT_ACCEPTABLE)
 
         trade, _ = Trade.objects.get_or_create(
@@ -126,7 +128,7 @@ class TradeViewSet(viewsets.GenericViewSet, mixins.DestroyModelMixin):
             buyer=buyer,
         )
 
-        user_info = UserNamenPhoneSerializer(buyer).data
+        user_info = UserNamePhoneSerializer(buyer).data
         addresses = buyer.address.filter(recent=True)
 
         if addresses:
@@ -167,13 +169,13 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         self.serializer = None
         self.address = None
         self.payment = None
-        # self.request = self.request
         self.user = None
         self.trades = None
         self.data = None
         self.trades_id = None
 
-    def get_access_token(self):
+    @staticmethod
+    def get_access_token():
         bootpay = BootpayApi(application_id=load_credential("application_id"),
                              private_key=load_credential("private_key"))
         result = bootpay.get_access_token()
@@ -214,7 +216,8 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
         self.serializer = self.get_serializer(data=data)
         self.serializer.is_valid(raise_exception=True)
-        self.trades_id = data['trade']
+
+        self.trades_id = self.serializer.validated_data['trade']
         self.trades = self.get_queryset().filter(pk__in=self.trades_id, buyer=request.user)
 
         self.check_trades()
@@ -225,11 +228,10 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
             self.create_payment()
             self.create_deals()  # deal 생성과 동시에 상품 상태를 purchasing 으로 바꿈
 
-        items = self.trades
         serializer = PayformSerializer(self.payment, context={
             'addr': self.serializer.validated_data['address'],
             'application_id': self.serializer.validated_data['application_id'],
-            'items': items
+            'items': self.trades
         })
         return Response({'results': serializer.data}, status=status.HTTP_200_OK)
 
@@ -243,7 +245,10 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
         :return: code and status
         """
-        payment = Payment.objects.get(pk=request.data.get('order_id'))
+        serializer = PaymentConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        payment = Payment.objects.get(pk=serializer.validated_data['order_id'])
         user = request.user
 
         if Product.objects.filter(trade__deal__payment=payment) \
@@ -252,23 +257,25 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
                         Q(status__editing=True)|
                         Q(status__hiding=True)).exists():
 
-            # 구매할 수 없는 상태의의제품이 존재하므로, user의 trades, deal, delivery, payment를 삭제해야함
+            # 구매할 수 없는 상태의 제품이 존재하므로, user의 trades, deal, delivery, payment를 삭제해야함
+            product_ids = Product.objects.filter(trade__deal__payment=payment, sold=True).values_list('id', flat=True)
+
             deals = payment.deal_set.all()
+
             for deal in deals:
-                deal.trade_set.all().delete()
+                deal.trades.all().delete()
                 deal.delivery.delete()
             deals.delete()
             payment.delete()
-            product_ids = Product.objects.filter(trade__deal__payment=payment, sold=True).values_list('id', flat=True)
+
             TradeErrorLog.objects.create(user=user, product_ids=list(product_ids), status=2,
                                          description="판매되었거나 구매중이거나 수정중인 제품이 있습니다.")
             raise exceptions.NotAcceptable(detail='판매된 제품이 포함되어 있습니다.')
 
-        payment.receipt_id = request.data.get('receipt_id')
+        # payment : 결제 승인 전
+        payment.receipt_id = serializer.validated_data['receipt_id']
+        payment.status = 2
         payment.save()
-
-        # deal : 결제 확인
-        payment.deal_set.all().update(status=12)
 
         return Response(status=status.HTTP_200_OK)
 
@@ -289,10 +296,13 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         * https://github.com/bootpay/server_python/blob/master/lib/BootpayApi.py 맨 밑줄
         """
 
-        receipt_id = request.data.get('receipt_id')
-        order_id = request.data.get('order_id')
+        receipt_id = request.data.get('receipt_id', None)
+        order_id = request.data.get('order_id', None)
 
         if not (receipt_id or order_id):
+            PaymentErrorLog.objects.create(user=request.user, temp_payment=request.user.payment_set.last(),
+                                           description='잘못된 요청입니다. 결제는 되었으니 부트페이 확인 필요',
+                                           bootpay_receipt_id=request.user.payment_set.last().receipt_id)
             raise exceptions.NotAcceptable(detail='request body is not validated')
 
         try:
@@ -300,13 +310,13 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         except Payment.DoesNotExist:
             # 이런 경우는 없겠지만, payment 를 찾지 못한다면, User의 마지막 생성된 payment로 생각하고 에러 로그 생성
             PaymentErrorLog.objects.create(user=request.user, temp_payment=request.user.payment_set.last(),
-                                           description='해당 order_id의 payment가 존재하지 않습니다.')
+                                           description='해당 order_id의 payment가 존재하지 않습니다. 결제는 되었으니 부트페이 확인 필요',
+                                           bootpay_receipt_id=receipt_id)
             raise exceptions.NotFound(detail='해당 order_id의 payment가 존재하지 않습니다.')
 
-        # 결제 승인 중 (부트페이에선 결제 되었지만, done 에서 처리 전)
+        # 결제 승인 중 (부트페이에선 결제 되었지만, done api 에서 처리 전)
         payment.status = 3
         payment.save()
-        payment.deal_set.all().update(status=13)  # bootpay 에서만 결제완료
 
         buyer = payment.user
 
@@ -325,19 +335,20 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
                     # 하위 trade 2번처리 : 결제완료
                     trades = Trade.objects.filter(deal__payment=payment)
-                    trades.update(status=2)
+                    trades.update(status=1)
 
                     # deal : 결제완료, 거래 시간 저장
                     payment.deal_set.update(status=2, transaction_completed_date=datetime.now())
 
-                    # walletlog 생성 : 정산은 walletlog를 통해서만 정산
+                    # payment : 결제 완료
+                    payment.status = 1
+                    payment.save()
+
                     for deal in payment.deal_set.all():
-                        WalletLog.objects.create(deal=deal, user=deal.seller, amount=deal.remain)
+                        # 판매 승인 모델 생성 : 각 상품 별로 판매 승인이 이루어집니다.
+                        Transaction.objects.create(deal=deal, due_date=datetime.now()+timedelta(hours=12))
 
-                        # 판매 승인 모델 생성
-                        SalesApproval.objects.create(deal=deal, due_date=datetime.now()+timedelta(hours=12))
-
-                        # todo : 거래내역 확인 및 알림 처리리
+                        # todo : 거래내역 확인 및 알림 처리
                         # reference = UserActivityReference.objects.create(deal=deal)
                         # activity log 생성 : seller
                         # UserActivityLog.objects.create(user=deal.seller, status=200, reference=reference)
@@ -345,8 +356,14 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
                         # UserActivityLog.objects.create(user=buyer, status=100, reference=reference)
                     return Response(status.HTTP_200_OK)
         else:
-            result = bootpay.cancel('receipt_id')
+            # payment : 결제 승인 실패
+            payment.status = -2
+            payment.save()
+
+            # bootpay 취소 요청
+            result = bootpay.cancel(receipt_id)
             serializer = PaymentCancelSerialzier(payment, data=result['data'])
+
             if serializer.is_valid():
                 serializer.save()
                 PaymentErrorLog.objects.create(user=request.user, temp_payment=payment, description='bootpay 결제 실패, 취소 완료')
@@ -357,21 +374,32 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
                 # deal : bootpay 환불 완료
                 payment.deal_set.all().update(status=-3)
 
+                # payment : 결제 취소 완료
+                payment.status = 20
+                payment.save()
+
+                for deal in payment.deal_set.all():
+                    Transaction.objects.create(deal=deal, status=-2)
+
                 # activity log : buyer 결제 취소됨
                 # UserActivityLog.objects.create(user=buyer, status=190)
 
                 return Response({'detail': 'canceled'}, status=status.HTTP_200_OK)
+            else:
+                PaymentErrorLog.objects.create(user=request.user, temp_payment=payment,
+                                               description='bootpay 결제 되었지만 서버에러. 부트페이 확인 후 처리 필요.',
+                                               bootpay_receipt_id=receipt_id)
+                for deal in payment.deal_set.all():
+                    Transaction.objects.create(deal=deal, status=-1)
 
-        PaymentErrorLog.objects.create(user=request.user, temp_payment=payment,
-                                       description='bootpay 결제 실패 취소 완료! 서버 데이터 집계 안됨. 정산 하면 안됨')
-        # todo: http stateless 특성상 데이터 집계가 될수 없을 수도 있어서 서버사이드랜더링으로 고쳐야 함...
         return Response({'detail': ''}, status=status.HTTP_200_OK)
 
     @action(methods=['post'], detail=False)
     def cancel(self, request):
         """
-        결제 진행 취소 시 lient 에서 호출하는 api 입니다.
+        결제 진행 취소 시 client 에서 호출하는 api 입니다.
         상품 상태를 초기화 합니다.
+        # TODO : check 프로세스
         api: POST api/v1/payment/cancel/
 
         :param request: order_id(payment id와 동일)
@@ -386,6 +414,8 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         """
         결제 중 에러 발생 시 client 에서 호출하는 api 입니다.
         상품 상태를 초기화 합니다.
+        # TODO : check 프로세스
+
         api: POST api/v1/payment/error/
 
         :param request: order_id(payment id와 동일)
@@ -396,14 +426,15 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         return Response(status=status.HTTP_200_OK)  # hmm..
 
     def create_payment(self):
-        self.payment = Payment.objects.create(user=self.request.user)
+        self.payment = Payment.objects.create(user=self.user)
 
     def check_trades(self):
         """
         request trades 가 유효한지 확인합니다.
         """
         if self.trades.exclude(buyer=self.user).exists():
-            TradeErrorLog.objects.create(user=self.user, product_ids=self.trades_id, status=1,
+            product_ids = Product.objects.filter(trade__in=self.trades).values_list('pk', flat=True)
+            TradeErrorLog.objects.create(user=self.user, product_ids=product_ids, status=1,
                                          description="잘못된 trades id 로 요청하였습니다.")
             raise exceptions.NotAcceptable(detail='잘못된 정보로 요청하였습니다.')
 
@@ -413,8 +444,9 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         * 결제 중 seller 가 상품의 가격을 수정하는 경우 에러가 발생합니다.
         """
         total_sum = self.payment.deal_set.aggregate(total_sum=Sum('total'))['total_sum']
-        if not total_sum == int(self.request.data.get('price')):
-            TradeErrorLog.objects.create(user=self.user, product_ids=self.trades_id, status=1,
+        if total_sum != int(self.request.data.get('price')):
+            product_ids = Product.objects.filter(trade__in=self.trades).values_list('pk', flat=True)
+            TradeErrorLog.objects.create(user=self.user, product_ids=product_ids, status=1,
                                          description="상품의 가격이 맞지 않습니다. 결제 중 셀러가 가격을 수정하였거나, 서버 확인이 필요합니다.")
             raise exceptions.NotAcceptable(detail='가격을 확인해주시길 바랍니다.')
 
@@ -427,9 +459,9 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
                                                   Q(product__status__purchasing=True)|
                                                   Q(product__status__editing=True)|
                                                   Q(product__status__hiding=True))
-        product_ids = Product.objects.filter(trade__in=self.trades, status__sold=True)
 
         if sold_products_trades.exists():
+            product_ids = Product.objects.filter(trade__in=self.trades).values_list('pk', flat=True)
             # sold_products_trades.delete()  # 만약 결제된 상품이면, 카트(trades)에서 삭제해야함.
             TradeErrorLog.objects.create(user=self.user, product_ids=list(product_ids), status=1,
                                          description="판매되었거나 구매중이거나 수정중인 제품이 있습니다.")
@@ -459,7 +491,7 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
     def create_deals(self):
         """
-        trades 를 셀러별로 묶어 deal 을 생성합니다. 상품의 상태를 purchasing 으로 update 합니다.
+        trades 를 셀러별로 묶어 deal 을 생성합니다.
         """
         bulk_list_delivery = []
 
@@ -479,12 +511,9 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
             )
 
             bulk_list_delivery.append(Delivery(
-                # address=self.serializer.validated_data['address'],
-                # address = self.data['address'],
-                # memo=self.serializer.validated_data['memo'],
-                memo = self.data['memo'],
-                # mountain=self.serializer.validated_data['mountain'],
-                # mountain = self.data.get('mountain', None),
+                address=self.serializer.validated_data['address'],
+                memo=self.serializer.validated_data['memo'],
+                mountain=self.serializer.validated_data['mountain'],
                 state=Delivery._BEFORE_INPUT,
                 deal=deal  # 유저가 결제시(한 셀러 샵에서 여러개 상품 구매시 하나의 delivery생성), 배송 정보 기입.
             ))
@@ -493,8 +522,7 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
         # check total sum for seller editing product price during purchasing
         self.check_total_price()
-        # self.payment.price = self.serializer.validated_data['price']
-        self.payment.price = self.data['price']
+        self.payment.price = self.serializer.validated_data['price']
 
         if self.trades.count() > 1:
             self.payment.name = self.trades.first().product.name + ' 외 ' + str(self.trades.count() - 1) + '건'
@@ -503,7 +531,6 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
         self.payment.save()
 
-        # ProductStatus.objects.filter(product__trade__in=self.trades).update(purchasing=True)
         Delivery.objects.bulk_create(bulk_list_delivery)
 
     @property
@@ -527,61 +554,172 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         return address
 
 
-class PayInfo(APIView):
-    # todo : 최적화 필요 토큰을 저장하고 25분마다 생성하고 그 안에서는 있는 토큰 사용할 수 있게
-    # todo : private_key 초기화 및 가져오는 처리도 필요
-    def get_access_token(self):
+class TransactionViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated, ]
+    serializer_class = None
+    queryset = Deal.objects.filter(trades__product__status__sold=True, trades__product__status__sold_status=1) \
+        .select_related('trades',
+                        'trades__product',
+                        'seller',
+                        'buyer',
+                        'payment',
+                        'transaction')
+    """
+    구매자 결제 이후 구매 취소, 판매 거절, 판매 승인, 구매 확정 등 결제이후 행동에 관련된 api 입니다.
+    추후 한번에 결제 구현을 위해 Deal 별로 거래 취소 단위를 묶는게 아닌, Trade 단위로 동작합니다.
+    """
+
+    def __init__(self):
+        super(TransactionViewSet, self).__init__()
+        self.trade = None
+        self.payment = None
+        self.receipt_id = None
+        self.wallet = None
+        self.deal = None
+
+    @staticmethod
+    def get_access_token():
         bootpay = BootpayApi(application_id=load_credential("application_id"),
                              private_key=load_credential("private_key"))
         result = bootpay.get_access_token()
         if result['status'] is 200:
             return bootpay
+        else:
+            raise exceptions.APIException(detail='bootpay access token 확인바람')
 
-    @authentication_classes(authentication.TokenAuthentication)
-    def get(self, request, format=None):
-        bootpay = self.get_access_token()
-        receipt_id = request.META.get('HTTP_RECEIPTID')
-        info_result = bootpay.verify(receipt_id)
-        if info_result['status'] is 200:
-            return JsonResponse(info_result)
+    @transaction.atomic
+    @action(methods=['post'], detail=True)
+    def cancel(self, request, *args, **kwargs):
+        """
+        구매자 거래 취소 : 판매자 판매 승인 이전에 구매취소가 가능합니다.
+        """
+        user = request.user
+        self.deal = self.get_object()
+        data = request.data.copy()
+        buyer_cancel_reason = data.get('reason', None)
 
-    @authentication_classes(authentication.TokenAuthentication)
-    def post(self, request):
+        if not buyer_cancel_reason:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+        # 구매자가 아니면 406
+        if self.deal.buyer != user:
+            return Response(status=status.HTTP_406_NOT_ACCEPTABLE)
+
+        transaction_obj = self.deal.transaction
+
+        # 판매 승인 되었을 시 403
+        if transaction_obj.seller_accepted:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        # 구매자 구매 취소 저장
+        # TODO : post save로 알림 내역 저장. 알림 내역 저장하면서 푸쉬 알림
+        transaction_obj.buyer_cancel = True
+        transaction_obj.buyer_cancel_reason = buyer_cancel_reason
+        transaction_obj.status = -2
+        transaction_obj.save()
+
+        self.payment = self.deal.payment
+        self.receipt_id = self.payment.receipt_id
+
+        self._payment_cancel_status()
+
+        return Response({'detail': 'canceled'}, status=status.HTTP_200_OK)
+
+    @transaction.atomic
+    @action(methods=['post'], detail=True)
+    def reject(self, request, *args, **kwargs):
+        """
+        판매자 판매 거절 : 판매 거절 사유를 입력받아야 합니다.
+        """
+        data = request.data.copy()
+        seller_reject_reason = data.get('reason', None)
+
+        if not seller_reject_reason:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        self.deal = self.get_object()
+
+        # 판매자가 아니면 406
+        if self.deal.seller != user:
+            return Response(status=status.HTTP_406_NOT_ACCEPTABLE)
+
+        # 판매 거절 업데이트
+        Transaction.objects.filter(deal=self.deal)\
+            .update(seller_accepted=False, seller_reject_reason=seller_reject_reason, status=-2)
+
+        self.payment = self.deal.payment
+        self.receipt_id = self.payment.receipt_id
+
+        self._payment_cancel_status()
+
+        return Response({'detail': 'canceled'}, status=status.HTTP_200_OK)
+
+    def _payment_cancel_status(self):
         bootpay = self.get_access_token()
-        receipt_id = request.META.get('HTTP_RECEIPTID')
-        info_result = bootpay.verify(receipt_id)
-        if info_result['status'] is 200:
-            all_fields = Payment.__dict__.keys()
-            filtered_dict = {}
-            for key in info_result['data']:
-                if key in all_fields:
-                    filtered_dict[key] = info_result['data'][key]
-            payment = Payment.objects.create(**filtered_dict)
-            print(payment)
-            serializer = PaymentSerializer(payment)
+        result = bootpay.cancel(self.receipt_id)
+        serializer = PaymentCancelSerialzier(self.payment, data=result['data'])
+
+        if serializer.is_valid():
             serializer.save()
-            return JsonResponse(serializer.data)
+
+            # deal : 결제 취소
+            self.deal.status = -2
+            self.deal.save()
+
+            # payment : 결제 취소 완료 : 한번에 하나 결제이기 떄문에
+            self.payment.status = 20
+            self.payment.save()
+
+            for trade in self.deal.trades.all():
+                trade.status = 2
+                trade.save()
+
         else:
-            return JsonResponse(info_result)
+            raise exceptions.ValidationError(detail='취소 과정에서 오류가 발생했습니다.')
 
+    @transaction.atomic
+    @action(methods=['post'], detail=True)
+    def approval(self, request, *args, **kwargs):
+        """
+        판매자 판매 승인 : 판매 승인과 동시에 채팅방이 열립니다.
+        """
+        user = request.user
+        deal = self.get_object()
 
-class RefundInfo(APIView):
-    # todo: 부트페이 계정 초기화 및 일반화
-    def get_access_token(self):
-        bootpay = BootpayApi(application_id=load_credential("application_id"),
-                             private_key=load_credential("private_key"))
-        result = bootpay.get_access_token()
-        if result['status'] is 200:
-            return bootpay
+        if deal.seller != user:
+            return Response(status=status.HTTP_406_NOT_ACCEPTABLE)
 
-    def post(self, request, format=None, **kwargs):
-        bootpay = self.get_access_token()
-        receipt_id = request.META.get('HTTP_RECEIPTID')
-        refund = request.data
-        print(refund)
-        cancel_result = bootpay.cancel(receipt_id, refund['name']['amount'], refund['name']['name'],
-                                       refund['name']['description'])
-        if cancel_result['status'] is 200:
-            return JsonResponse(cancel_result)
-        else:
-            return JsonResponse(cancel_result)
+        transaction_obj = deal.transaction
+        transaction_obj.seller_accepted = True
+        transaction_obj.status = 2
+        transaction_obj.save()
+
+        ChatRoom.objects.create(seller=deal.seller, buyer=deal.buyer, deal=deal)
+
+        return Response(status=status.HTTP_201_CREATED)
+
+    @transaction.atomic
+    @action(methods=['post'], detail=True)
+    def confirm(self, request, *args, **kwargs):
+        """
+        구매자 구매 확정 : 구매 확정시 정산 내역에 정산 예정일이 업데이트 됩니다.
+        """
+        user = request.user
+        deal = self.get_object()
+
+        if deal.seller != user:
+            return Response(status=status.HTTP_406_NOT_ACCEPTABLE)
+
+        transaction_obj = deal.transaction
+        transaction_obj.confirm_transaction = True
+        transaction_obj.status = 4
+        transaction_obj.save()
+
+        return Response(status=status.HTTP_200_OK)
+
+    def partial_cancel(self, request, *args, **kwargs):
+        pass
+
+    def partial_reject(self, request, *args, **kwargs):
+        pass

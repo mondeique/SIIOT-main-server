@@ -1,6 +1,3 @@
-import os
-from datetime import timedelta, datetime
-
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.conf import settings
@@ -26,6 +23,7 @@ class Payment(models.Model):
         (2, '결제승인전'),
         (3, '결제승인중'),
         (20, '결제취소'),
+        (21, '부분결제취소'),
         (-20, '결제취소실패'),
         (-30, '결제취소진행중'),
         (-1, '오류로 인한 결제실패'),
@@ -62,21 +60,13 @@ class Payment(models.Model):
 class Deal(models.Model):  # 돈 관련 (스토어 별로)
     """
     셀러별 한번에 결제를 구현하기 위해 만들었습니다.
-
     """
 
     STATUS = [
         (1, '결제시작'),  # get_payform
-        (12, '결제확인'),  # confirm
-        (13, '부트페이 결제완료'),  # done 진입 시
-        (2, '결제완료'),  # payment/done/ 처리시 바뀜 = 배송전 , noti 날려주기.
-        (3, '판매승인'),  # seller 승인시, 이 전에 결제 취소 가능, 이 이후에는 결제취소 요청
-        (4, '운송장입력완료'),  # 운송장번호 입력시 바꿔줌. 배송중과 동일한 상태
-        (5, '거래완료'),  # 셀러한테 noti 날려주기. // 리뷰남겼을떄, 판매승인 7일 후 (자동구매확정)
-        (6, '정산완료'),  # 정산처리 후 admin 필요
-        (-1, '결제취소신청'),  # 배송준비중인 상태에서 취소요청
-        (-2, '결제취소'),  # 결제취소/ 결제취소요청 승인
-        (-3, '결제취소완료'),  # bootpay 에서 결제 취소시
+        (2, '결제완료'),
+        (-2, '결제취소'),
+        (-3, '부분취소'),
         (-20, '기타처리'),
     ]
 
@@ -86,6 +76,7 @@ class Deal(models.Model):  # 돈 관련 (스토어 별로)
     payment = models.ForeignKey(Payment, null=True, blank=True, on_delete=models.SET_NULL)
     total = models.IntegerField(verbose_name='결제금액')
     remain = models.IntegerField(verbose_name='잔여금(정산금액)')  # 수수료계산이후 정산 금액., 정산이후는 0원, 환불시 감소 등.
+
     delivery_charge = models.IntegerField(verbose_name='배송비(참고)')
     status = models.IntegerField(choices=STATUS, default=1, db_index=True)
     is_settled = models.BooleanField(default=False, help_text="정산 여부(신중히 다뤄야 함)", verbose_name="정산여부(신중히)")
@@ -95,92 +86,23 @@ class Deal(models.Model):  # 돈 관련 (스토어 별로)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    @property
-    def settable(self):
-        """
-        정산 가능 여부 , 거래 완료 여부
-        """
-        if self.status == 5:
-            return True
-        elif self.status in [2, 3, 4] and self.delivery.number_created_time:
-            if self.delivery.number_created_time + timedelta(days=5) < datetime.now():
-                return True
-            else:
-                return False
-        else:
-            return False
-
-    # def save(self, *args, **kwargs):
-    #     super(Deal, self).save(*args, **kwargs)
-
 
 class Trade(models.Model):  # 카트, 상품 하나하나당 아이디 1개씩
     """
     장바구니 기능 및 결제시 각 상품에 대해 관리하기 위해 만들었습니다.
     추후 부분 결제 취소시 해당 obj 의 상태를 변경하면 됩니다.
-    TODO: STATUS 변경
     """
     STATUS = [
-        (1, '결제전'),
-        (2, '결제완료'),  # payment/done/ 처리시 바뀜 = 배송전 , noti 날려주기.
-        (3, '판매승인'),
-        (4, '운송장입력'),   # 운송장번호 입력시 바꿔줌
-        (5, '거래완료'),  # 셀러한테 noti 날려주기. // 리뷰남겼을떄, 판매승인 7일 후 (자동구매확정)
-        (6, '정산완료'),  # 정산처리 후 admin 필요
-        (-1, '결제취소신청'),  # 배송준비중인 상태에서 취소요청
-        (-2, '결제취소'),  # 결제취소/ 결제취소요청 승인
-        (-3, '결제취소완료'),  # bootpay 에서 결제 취소시
-        (-20, '기타처리'),
+        (0, '결제 전'),
+        (1, '상품결제완료'),
+        (2, '상품결제취소'),
     ]
 
-    deal = models.ForeignKey(Deal, blank=True, null=True, on_delete=models.SET_NULL)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    seller = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='Trade_seller')
-    buyer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='Trade_buyer')
-    status = models.IntegerField(choices=STATUS, default=1)
+    deal = models.ForeignKey(Deal, blank=True, null=True, on_delete=models.SET_NULL, related_name='trades')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='trades')
+    status = models.IntegerField(choices=STATUS, default=0)
     created_at = models.DateTimeField(auto_now_add=True, help_text="카트 담긴 시각")
     updated_at = models.DateTimeField(auto_now=True, help_text="카트 수정 시각")
-    # todo: status : 결제, 배송, success, refund
-
-    # @property
-    # def settable(self):
-    #     """
-    #     정산 가능 여부 , 거래 완료 여부
-    #     """
-    #     deal = self.deal
-    #     if not hasattr(deal, 'delivery'):
-    #         print('asdasd')
-    #     else:
-    #         completed_date = deal.delivery.number_created_time
-    #     if self.status == 5:
-    #         return True
-    #     elif self.status in [2, 3, 4] and completed_date:
-    #         if completed_date + timedelta(days=5) < datetime.now():
-    #             return True
-    #         else:
-    #             return False
-    #     else:
-    #         return False
-
-
-class TradeLog(models.Model):
-    STATUS = [
-        (1, '결제전'),
-        (2, '결제완료'),  # payment/done/ 처리시 바뀜 = 배송전 , noti 날려주기.
-        (3, '배송중'),  # 운송장번호 입력시 바꿔줌
-        (4, '배송완료'),
-        (5, '거래완료'),  # 셀러한테 noti 날려주기. // 리뷰남겼을떄, 판매승인 7일 후 (자동구매확정)
-        (6, '정산완료'),  # 정산처리 후 admin 필요
-        (-1, '환불신청'),
-        (-2, '환불승인'),
-        (-3, '환불완료'),
-        (-20, '환불반려'),
-    ]
-
-    trade = models.ForeignKey(Trade, on_delete=models.CASCADE)
-    log = models.TextField()
-    status = models.IntegerField(choices=STATUS)
-    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class TradeErrorLog(models.Model):
@@ -212,54 +134,30 @@ class PaymentErrorLog(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     temp_payment = models.ForeignKey(Payment, null=True, blank=True, on_delete=models.SET_NULL)
     description = models.CharField(max_length=100)
+    bootpay_receipt_id = models.TextField(null=True, blank=True)
 
 
-class WalletLog(models.Model):
+class Wallet(models.Model):
     """
     정산을 수행하는 모델입니다.
     """
     STATUS = [
         (1, '정산대기'),
         (2, '정산완료'),
-        (-3, '환불처리'),
         (99, '기타')
     ]
+
+    deal = models.OneToOneField(Deal, blank=True, null=True, on_delete=models.PROTECT)
+
     status = models.IntegerField(choices=STATUS, default=1)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    seller = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
     amount = models.IntegerField(help_text="정산금액", default=0)
     log = models.TextField(verbose_name='로그 및 특이사항')
-    deal = models.OneToOneField(Deal, blank=True, null=True, on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_settled = models.BooleanField(default=False, help_text='정산시 True')
-    is_possible = models.BooleanField(default=False, help_text='정산 가능 여부입니다. 구매승인시 True')
 
     class Meta:
         verbose_name = "정산 관리"
         verbose_name_plural = "정산 관리"
 
-    def save(self, *args, **kwargs):
-        # self._check_deal_status()
-        super(WalletLog, self).save(*args, **kwargs)
-
-    # def _check_deal_status(self):
-    #     from user_activity.models import UserActivityReference, UserActivityLog
-    #
-    #     if self.is_settled:
-    #         deal = self.deal
-    #         if deal.status == 6 or deal.is_settled:
-    #             raise Exception('정산이 불가한 상태입니다.')
-    #         elif deal.settable:
-    #
-    #             # activity 생성을 위함
-    #             reference = UserActivityReference.objects.get_or_create(deal=deal)
-    #             print(reference)
-    #             self.status = 2
-    #             self.deal.is_settled = True
-    #             self.deal.save()
-    #
-    #             # 정산 완료시 알림
-    #             UserActivityLog.objects.get_or_create(user=deal.seller, status=203, reference=reference)
-    #
-    #         else:
-    #             raise Exception('정산이 불가한 상태입니다.')
