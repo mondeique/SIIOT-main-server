@@ -146,6 +146,9 @@ class ProductStatus(models.Model):
 
     hiding = models.BooleanField(default=False, help_text="숨기기 기능을 구현하기 위해 만들었습니다. True 이면 숨김 처리가 됩니다.")
 
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
 
 class ProductImages(models.Model):
     product = models.ForeignKey(Product, related_name="images", on_delete=models.CASCADE)

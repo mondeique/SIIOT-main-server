@@ -5,6 +5,7 @@ from django.db import models
 from django.conf import settings
 from django.db.models import Sum
 
+from core.utils import get_wallet_scheduled_date
 from mypage.models import Address
 from payment.models import Deal, Trade, Wallet
 
@@ -22,7 +23,7 @@ class Transaction(models.Model):
     """
     STATUS = [
         (1, '결제완료'),
-        (2, '배송준비(거래중)'),
+        (2, '배송준비'),
         (3, '배송완료'),
         (4, '거래완료'),
         (-1, '오류로 인한 결제실패'),
@@ -78,7 +79,8 @@ class Transaction(models.Model):
     def _create_wallet(self):
         if self.confirm_transaction:
             amount = self.deal.trades.filter(status=1).aggregate(price=Sum('product__price'))['price']
-            Wallet.objects.create(deal=self.deal, seller=self.deal.seller, amount=amount)
+            date = get_wallet_scheduled_date()
+            Wallet.objects.create(deal=self.deal, seller=self.deal.seller, amount=amount, scheduled_date=date)
 
 
 class TransactionPartialCancelLog(models.Model):

@@ -155,9 +155,18 @@ class Wallet(models.Model):
     log = models.TextField(verbose_name='로그 및 특이사항')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    scheduled_date = models.DateTimeField(null=True, blank=True, help_text='정산 예정일')
     is_settled = models.BooleanField(default=False, help_text='정산시 True')
 
     class Meta:
         verbose_name = "정산 관리"
         verbose_name_plural = "정산 관리"
 
+    def save(self, *args, **kwargs):
+        self._update_status()
+        super(Wallet, self).save(*args, **kwargs)
+
+    def _update_status(self):
+        if self.is_settled:
+            self.status = 2

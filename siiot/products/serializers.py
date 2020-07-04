@@ -1,5 +1,5 @@
 from rest_framework import serializers, exceptions
-from core.utils import get_age_fun
+from core.utils import get_age_fun, test_thumbnail_image_url
 from crawler.models import CrawlProduct
 from mypage.serializers import SimpleSellerInfoSerializer, DeliveryPolicyInfoSerializer
 from products.category.serializers import ColorSerializer
@@ -103,7 +103,7 @@ class ProductMainSerializer(serializers.ModelSerializer):
             try:
                 return obj.images.first().image_url
             except:
-                return 'https://pepup-storage.s3.ap-northeast-2.amazonaws.com/008914fd-1b16-45ac-a9a7-0c94427bcf47.jpg'
+                return test_thumbnail_image_url
         return CrawlProduct.objects.get(id=obj.crawl_product_id).thumbnail_image_url
 
     def get_is_owner(self, obj):
@@ -192,7 +192,7 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
             try:
                 return obj.images.first().image_url
             except:
-                return 'https://pepup-storage.s3.ap-northeast-2.amazonaws.com/008914fd-1b16-45ac-a9a7-0c94427bcf47.jpg'
+                return test_thumbnail_image_url
         return CrawlProduct.objects.get(id=obj.crawl_product_id).thumbnail_image_url
 
     @staticmethod
@@ -370,7 +370,7 @@ class RelatedProductSerializer(serializers.ModelSerializer):
             try:
                 return obj.images.first().image_url
             except:
-                return 'https://pepup-storage.s3.ap-northeast-2.amazonaws.com/008914fd-1b16-45ac-a9a7-0c94427bcf47.jpg'
+                return test_thumbnail_image_url
         return CrawlProduct.objects.get(id=obj.crawl_product_id).thumbnail_image_url
 
     @staticmethod

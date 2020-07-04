@@ -3,6 +3,9 @@ from django.utils.timesince import timesince
 from dateutil.relativedelta import relativedelta
 
 
+test_thumbnail_image_url = 'https://pepup-storage.s3.ap-northeast-2.amazonaws.com/008914fd-1b16-45ac-a9a7-0c94427bcf47.jpg'
+
+
 def get_age_fun(obj):
     now = datetime.datetime.now()
     created_at = obj.created_at
@@ -33,3 +36,18 @@ def get_age_fun(obj):
 
     return '{}년{}월{}일'.format(
         created_at.strftime('%y'), created_at.strftime('m'), created_at.strftime('d'))
+
+
+def get_wallet_scheduled_date():
+    dt = datetime.datetime.now()
+    weekday = dt.weekday()
+    date_list = [0, 1, 2, 3, 4, 5, 6]  # 0: Mon, 6: Sun
+    if weekday in [0, 1]:
+        t_delta = 2 - weekday
+    elif weekday in [2, 3]:
+        t_delta = 4 - weekday
+    else:
+        t_delta = 7 - weekday
+
+    scheduled_date = dt + datetime.timedelta(days=t_delta)
+    return scheduled_date
