@@ -64,6 +64,7 @@ class ProductMainSerializer(serializers.ModelSerializer):
     int_price = serializers.SerializerMethodField(read_only=True)
     is_owner = serializers.SerializerMethodField()
     has_receipt = serializers.SerializerMethodField()
+    sold = serializers.SerializerMethodField()
 
     # for develop
     price = serializers.SerializerMethodField()
@@ -76,6 +77,7 @@ class ProductMainSerializer(serializers.ModelSerializer):
                   'price',
                   'int_price',
                   'has_receipt',
+                  'sold',
                   'is_owner']
 
     @staticmethod
@@ -93,6 +95,9 @@ class ProductMainSerializer(serializers.ModelSerializer):
         if obj.price:
             return obj.price
         return 999
+
+    def get_sold(self, obj):
+        return obj.status.sold
 
     @staticmethod
     def get_thumbnail_image_url(obj):

@@ -268,3 +268,5 @@ class ProductLike(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='liker', on_delete=models.CASCADE)
     product = models.ForeignKey(Product, related_name='liked', on_delete=models.CASCADE)
     is_liked = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+

@@ -42,7 +42,7 @@ class ProductViewSet(viewsets.GenericViewSet,
                      mixins.ListModelMixin):
     permission_classes = [ProductViewPermission, ]
     queryset = Product.objects.all().select_related('seller', 'seller__profile', 'seller__delivery_policy')\
-                              .select_related('receipt', 'category', 'purchased_time', 'color', 'size')
+                              .select_related('receipt', 'category', 'purchased_time', 'color', 'size', 'liked')
 
     """
     상품 업로드 및 조회에 관련된 ViewSet 입니다.
@@ -421,36 +421,16 @@ class ProductViewSet(viewsets.GenericViewSet,
     def likes(self, request, *args, **kwargs):
         """
         찜한 상품들을 조회하는 API 입니다.
-        api: GET api/v1/product/likes/?filter=int/
+        api: GET api/v1/product/likes/
 
         :return:
-        404 : 해당 유저가 존재하지 않을 경우
        """
         user = request.user
-        if not user:
-            return Response({}, status=status.HTTP_404_NOT_FOUND)
-        id_list = list(ProductLike.objects.filter(user=user, is_liked=True).values_list('product_id', flat=True))
-        qs = Product.objects.filter(id__in=id_list)
-        # filter
-        filter_param = int(request.query_params.get('filter', 1))  # filter 있으면 filter, 없으면 1
-        if filter_param == 1:
-            # 최신순
-            filter_queryset = qs.order_by('created_at')
-        elif filter_param == 2:
-            # 오래된순
-            filter_queryset = qs.order_by('-created_at')
-        elif filter_param == 3:
-            # 저가순
-            filter_queryset = qs.order_by('price')
-        elif filter_param == 4:
-            # 고가순
-            filter_queryset = qs.order_by('-price')
-        else:
-            filter_queryset = qs
-        paginator = SiiotPagination()
-        page = paginator.paginate_queryset(queryset=filter_queryset, request=request)
-        products_serializer = self.get_serializer(page, many=True, context={'request': request})
-        return paginator.get_paginated_response(products_serializer.data)
+        queryset = Product.objects.filter(liked__user=user, is_active=True, status__hiding=False)\
+            .order_by('-liked__created_at')
+
+        serializer = self.get_serializer(queryset, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(methods=['post'], detail=False)
     def delete_like(self, request, *args, **kwargs):

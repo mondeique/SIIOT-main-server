@@ -51,7 +51,6 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         200 : 해당 토큰을 가진 유저가 존재할 때
         401 : 해당 토큰을 가진 유저가 존재하지 않거나 토큰을 담아서 주지 않았을 때
         """
-        print(request.user)
         if request.user.is_anonymous:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
         user = request.user
