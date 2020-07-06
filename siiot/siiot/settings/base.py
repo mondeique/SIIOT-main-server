@@ -109,16 +109,9 @@ THIRD_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
 
-    # allauth
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
     'rest_auth.registration',
 
-    'allauth.socialaccount.providers.instagram',
-    'allauth.socialaccount.providers.kakao',
-    'allauth.socialaccount.providers.google',
-    # 'drf_yasg',
+    'drf_yasg',
 
     'storages',
 
