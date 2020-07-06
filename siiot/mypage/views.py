@@ -4,19 +4,19 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework import viewsets, mixins
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 # Create your views here.
 from delivery.models import Transaction
 from mypage.models import Accounts
 from mypage.serializers import TransactionSoldHistorySerializer, TransactionPurchasedHistorySerializer, \
-    TransactionSettlementHistorySerializer, OnSaleProductSerializer
+    TransactionSettlementHistorySerializer, OnSaleProductSerializer, MypageSerializer
 from payment.models import Wallet
 from products.category.models import Bank
 from products.category.serializers import BankListSerializer, AccountsSerializer
 
 
-class AccountsViewSet(viewsets.ModelViewSet):
+class AccountsViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
     queryset = Accounts
     permission_classes = [IsAuthenticated, ]
     serializer_class = AccountsSerializer
@@ -41,6 +41,16 @@ class AccountsViewSet(viewsets.ModelViewSet):
     def bank_list(self, request, *args, **kwargs):
         qs = Bank.objects.filter(is_active=True)
         serializer = BankListSerializer(qs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class MyPageViewSet(viewsets.ModelViewSet):
+    permission_classes = [AllowAny, ]
+    serializer_class = MypageSerializer
+
+    def list(self, request, *args, **kwargs):
+        user = request.user
+        serializer = self.get_serializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 

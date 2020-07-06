@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
+from accounts.models import User
 from core.utils import test_thumbnail_image_url, get_age_fun
 from crawler.models import CrawlProduct
 from delivery.models import Transaction
@@ -28,6 +29,28 @@ class SimpleSellerInfoSerializer(serializers.ModelSerializer):
         return 5.0
 
 
+class MypageSerializer(serializers.ModelSerializer):
+    user_info = serializers.SerializerMethodField()
+    sales_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['user_info', 'sales_count']
+
+    def get_user_info(self, obj):
+        user = obj
+        if user.is_anonymous:
+            return None
+        serializer = SimpleSellerInfoSerializer(user)
+        return serializer.data
+
+    def get_sales_count(self, obj):
+        user = obj
+        if user.is_anonymous:
+            return None
+        return user.products.all().count()
+
+
 class DeliveryPolicyInfoSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -43,7 +66,7 @@ class TransactionHistorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Transaction
-        fields = ['id','thumbnail_image_url', 'price', 'name', 'age']
+        fields = ['id', 'thumbnail_image_url', 'price', 'name', 'age']
 
     def get_thumbnail_image_url(self, obj):
         self.product = obj.deal.trades.first().product
@@ -140,7 +163,7 @@ class TransactionSettlementHistorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Wallet
-        fields = ['id', 'status', 'thumbnail_image_url', 'amount', 'name', 'age', 'buyer_nickname']
+        fields = ['id', 'status', 'thumbnail_image_url', 'amount', 'name', 'age', 'buyer_nickname', 'scheduled_date']
 
     def get_thumbnail_image_url(self, obj):
         product = obj.deal.trades.first()
