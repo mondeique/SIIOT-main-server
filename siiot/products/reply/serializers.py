@@ -46,14 +46,18 @@ class ProductAnswerCreateSerializer(serializers.ModelSerializer):
 
 class ProductAnswerRetrieveSerializer(serializers.ModelSerializer):
     age = serializers.SerializerMethodField()
+    nickname = serializers.SerializerMethodField()
 
     class Meta:
         model = ProductAnswer
-        fields = ['id', 'question', 'text', 'age']
+        fields = ['id', 'question', 'nickname', 'text', 'age']
 
     def get_age(self, obj):
         return get_age_fun(obj)
 
+    def get_nickname(self, obj):
+        user = obj.user
+        return user.nickname
 
 # replies list
 class ProductRepliesSerializer(serializers.ModelSerializer):
@@ -87,11 +91,12 @@ class ProductReplySerializer(serializers.ModelSerializer):
     answers = serializers.SerializerMethodField()
     age = serializers.SerializerMethodField()
     profile_img = serializers.SerializerMethodField()
+    nickname = serializers.SerializerMethodField()
     edit_possible = serializers.SerializerMethodField()
 
     class Meta:
         model = ProductQuestion
-        fields = ['id', 'profile_img', 'product', 'text', 'age', 'edit_possible', 'answers']
+        fields = ['id', 'profile_img', 'nickname', 'product', 'text', 'age', 'edit_possible', 'answers']
 
     def get_age(self, obj):
         return get_age_fun(obj)
@@ -101,6 +106,10 @@ class ProductReplySerializer(serializers.ModelSerializer):
         if hasattr(user, 'profile'):
             return user.profile.profile_img.url
         return None
+
+    def get_nickname(self, obj):
+        user = obj.user
+        return user.nickname
 
     def get_edit_possible(self, obj):
         return not obj.answers.exists()

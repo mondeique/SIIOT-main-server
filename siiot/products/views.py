@@ -42,7 +42,7 @@ class ProductViewSet(viewsets.GenericViewSet,
                      mixins.ListModelMixin):
     permission_classes = [ProductViewPermission, ]
     queryset = Product.objects.all().select_related('seller', 'seller__profile', 'seller__delivery_policy')\
-                              .select_related('receipt', 'category', 'purchased_time', 'color', 'size', 'liked')
+                              .select_related('receipt', 'category', 'purchased_time', 'color', 'size', 'views')
 
     """
     상품 업로드 및 조회에 관련된 ViewSet 입니다.
@@ -74,7 +74,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         else:
             return super(ProductViewSet, self).get_serializer_class()
 
-    @action(methods=['post'], detail=False)
+    @action(methods=['post'], detail=False, permission_classes=[AllowAny, ])
     def check_url(self, request, *args, **kwargs):
 
         """
@@ -88,13 +88,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         valid_url = check_product_url(url)
 
         if valid_url:
-            # database 존재
-            if CrawlProduct.objects.filter(product_url=url).exists() and \
-                    CrawlProduct.objects.filter(product_url=url).last().detail_images.exists():
-                return Response({'status': True}, status=status.HTTP_200_OK)
-            # 첫 크롤링 시도
-            else:
-                return Response({'status': False}, status=status.HTTP_200_OK)
+            return Response({'status': False}, status=status.HTTP_200_OK)
         else:
             return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -392,7 +386,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         """
         return super(ProductViewSet, self).list(request, *args, **kwargs)
 
-    @action(methods=['post'], detail=True)
+    @action(methods=['post'], detail=True, permission_classes=[IsAuthenticated, ])
     def like(self, request, *args, **kwargs):
         """
         상품 찜 버튼을 눌렀을 때 호출되는 API입니다. 상품 product id를 url에 담아서 호출해야합니다.
@@ -417,7 +411,7 @@ class ProductViewSet(viewsets.GenericViewSet,
             like.save()
         return Response(status=status.HTTP_206_PARTIAL_CONTENT)
 
-    @action(methods=['get'], detail=False)
+    @action(methods=['get'], detail=False, permission_classes=[IsAuthenticated, ])
     def likes(self, request, *args, **kwargs):
         """
         찜한 상품들을 조회하는 API 입니다.
@@ -432,7 +426,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         serializer = self.get_serializer(queryset, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @action(methods=['post'], detail=False)
+    @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated, ])
     def delete_like(self, request, *args, **kwargs):
         """
         찜한 목록 편집 시 product id의 list를 받아 찜 정보를 update하는 API 입니다.
@@ -457,7 +451,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         return Response(status=status.HTTP_206_PARTIAL_CONTENT)
 
 
-class ShoppingMallViewSet(viewsets.GenericViewSet):
+class ShoppingMallViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     queryset = ShoppingMall.objects.filter(is_active=True)
     permission_classes = [IsAuthenticated, ]
     serializer_class = ShoppingMallSerializer
@@ -471,13 +465,13 @@ class ShoppingMallViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(methods=['post'], detail=False)
+    @action(methods=['get'], detail=False)
     def searching(self, request, *args, **kwargs):
         """
         shopping mall 검색을 할 때 각 글자에 해당하는 쇼핑몰을 조회하는 api 입니다.
-        api: POST api/v1/shopping_mall/searching/
+        api: GET api/v1/shopping_mall/searching/?search_query=[]
         """
-        keyword = request.data['keyword']
+        keyword = request.query_params.get('search_query', None)
         if keyword:
             value = self.get_queryset()\
                     .filter(name__icontains=keyword) \
@@ -637,7 +631,7 @@ class S3ImageUploadViewSet(viewsets.GenericViewSet):
         return data
 
 
-class SearchViewSet(viewsets.ModelViewSet):
+class SearchViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     permission_classes = [AllowAny, ]
     serializer_class = ProductMainSerializer
 
@@ -659,6 +653,7 @@ class SearchViewSet(viewsets.ModelViewSet):
 
     @action(methods=['get'], detail=True)
     def shopping_mall(self, request, *args, **kwargs):
+
         shopping_mall = get_object_or_404(ShoppingMall, pk=kwargs['pk'])
 
         products = Product.objects.filter(shopping_mall=shopping_mall, is_active=True)\
@@ -683,9 +678,12 @@ class SearchViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
 
-    @action(methods=['post'], detail=False)
-    def searching(self, request, *args, **kwargs):
-        self.keyword = request.data.get('keyword', None)
+    # @action(methods=['get'], detail=False)
+    def list(self, request, *args, **kwargs):
+        """
+        api: GET api/v1/search/?search_query=
+        """
+        self.keyword = request.query_params.get('search_query', None)
         if len(self.keyword) < 1:
             return Response(status=status.HTTP_400_BAD_REQUEST)
         shops = self.search_by_shop()
@@ -718,7 +716,7 @@ class SearchViewSet(viewsets.ModelViewSet):
         return searched_product.count()
 
 
-class MainViewSet(viewsets.ModelViewSet):
+class MainViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     queryset = Product.objects\
         .filter(is_active=True)\
         .filter(status__sold=False, status__hiding=False)\
@@ -759,4 +757,3 @@ class MainViewSet(viewsets.ModelViewSet):
         page = paginator.paginate_queryset(queryset=custom_qs, request=request)
         products_serializer = self.get_serializer(page, many=True, context={'request': request})
         return paginator.get_paginated_response(products_serializer.data)
-
