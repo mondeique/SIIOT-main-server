@@ -1,5 +1,5 @@
 from custom_manage.sites import staff_panel
-from payment.models import Commission, Wallet, Trade, Deal, Payment, PaymentErrorLog
+from payment.models import Commission, Wallet, Trade, Deal, Payment, PaymentErrorLog, TradeErrorLog
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.safestring import mark_safe
@@ -88,4 +88,5 @@ staff_panel.register(Deal, DealAdmin)
 staff_panel.register(Payment, PaymentAdmin)
 # staff_panel.register(Wallet, WalletLogAdmin)
 staff_panel.register(PaymentErrorLog)
+staff_panel.register(TradeErrorLog)
 

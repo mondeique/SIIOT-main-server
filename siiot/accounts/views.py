@@ -69,7 +69,7 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
         :return:
         400 : bad request
-        401 : temp_key가 유효하지 않을 때
+        400 : temp_key가 유효하지 않을 때
         201 : created
         """
         data = request.data.copy()
@@ -81,9 +81,9 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         temp_key = data.pop('temp_key')
         phone_confirm = PhoneConfirm.objects.get(temp_key=temp_key)
         if not phone_confirm.is_confirmed:
-            return Response("Unconfirmed Phone number", status=status.HTTP_401_UNAUTHORIZED)
+            return Response("Unconfirmed Phone number", status=status.HTTP_400_BAD_REQUEST)
         if phone_confirm.phone != data.get("phone"):
-            return Response("Not match phone number & temp key", status=status.HTTP_401_UNAUTHORIZED)
+            return Response("Not match phone number & temp key", status=status.HTTP_400_BAD_REQUEST)
 
         # user 생성
         serializer = self.get_serializer(data=data)
@@ -156,7 +156,7 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
         :return:
         400 : bad request
-        401 : temp_key가 유효하지 않을 때
+        400 : temp_key가 유효하지 않을 때
         201 : created
         """
         data = request.data.copy()
@@ -169,9 +169,9 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         temp_key = data.pop('temp_key')
         phone_confirm = PhoneConfirm.objects.get(temp_key=temp_key)
         if not phone_confirm.is_confirmed:
-            return Response("Unconfirmed phone number", status=status.HTTP_401_UNAUTHORIZED)
+            return Response("Unconfirmed phone number", status=status.HTTP_400_BAD_REQUEST)
         if phone_confirm.phone != data.get("phone"):
-            return Response("Not match phone number & temp key", status=status.HTTP_401_UNAUTHORIZED)
+            return Response("Not match phone number & temp key", status=status.HTTP_400_BAD_REQUEST)
 
         phone = data.pop('phone')
         user = User.objects.filter(phone=phone, is_active=True)
@@ -222,7 +222,7 @@ class NicknameViewSet(viewsets.GenericViewSet, mixins.UpdateModelMixin):
     @action(['get'], detail=False, permission_classes=[AllowAny])
     def random(self, request, *args, **kwargs):
         """
-        [PEPUP-226] 2020.06.11
+        [PEPUP-226] 2020.06.11 기획이후 랜덤하게 설정하는 api 입니다.
         api: GET accounts/v1/nickname/random/
         """
         nickname = set_random_nickname(get_user_model())
@@ -243,7 +243,7 @@ class SMSViewSet(viewsets.GenericViewSet):
 
         :return : temp_key (이를 활용하여 재발급에 사용)
         400 : bad request -> phone 을 보내지 않았을 때
-        401 : 강제 밴 처리 당한 유저
+        400 : 강제 밴 처리 당한 유저
         409 : 이미 가입 내역이 존재
         500 : (1) client에서 data 양식에 맞지 않게 요청시, (2) send error
         """
@@ -254,7 +254,7 @@ class SMSViewSet(viewsets.GenericViewSet):
             return Response("No phone number", status=status.HTTP_400_BAD_REQUEST)
 
         if User.objects.filter(phone=phone, is_banned=True).exists():
-            return Response("User is banned", status=status.HTTP_401_UNAUTHORIZED) # banned user
+            return Response("User is banned", status=status.HTTP_400_BAD_REQUEST) # banned user
         elif User.objects.filter(phone=phone, is_active=True).exists():
             return Response("Phone number already exists", status=status.HTTP_409_CONFLICT) # already exists
 
@@ -277,7 +277,7 @@ class SMSViewSet(viewsets.GenericViewSet):
 
         :return : temp_key (이를 활용하여 재발급에 사용)
         400 : bad request -> phone 을 보내지 않았을 때
-        401 : 강제 밴 처리 당한 유저
+        400 : 강제 밴 처리 당한 유저
         204 : 가입 내역이 없음
         500 : (1) client에서 data 양식에 맞지 않게 요청시, (2) send error
         """
@@ -288,7 +288,7 @@ class SMSViewSet(viewsets.GenericViewSet):
             return Response("No phone number", status=status.HTTP_400_BAD_REQUEST)
 
         if User.objects.filter(phone=phone, is_banned=True).exists():
-            return Response("User is banned", status=status.HTTP_401_UNAUTHORIZED)  # banned user
+            return Response("User is banned", status=status.HTTP_400_BAD_REQUEST)  # banned user
         elif not User.objects.filter(phone=phone, is_active=True).exists():
             return Response("User does not exists", status=status.HTTP_204_NO_CONTENT)  # no user
 

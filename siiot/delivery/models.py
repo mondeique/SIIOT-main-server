@@ -161,6 +161,8 @@ class Delivery(models.Model):
 
     mountain = models.BooleanField(verbose_name='도서산간지역유무', default=False)
 
+    address = models.CharField(max_length=200)
+
     state = models.IntegerField(choices=states, default=1)
     code = models.TextField(choices=codes, null=True, blank=True, verbose_name='택배사코드')
     number = models.CharField(max_length=100, null=True, blank=True, verbose_name='운송장번호')
@@ -168,16 +170,16 @@ class Delivery(models.Model):
     # 운송장 번호 입력 시간 : 이 시간을 기준으로 5일 이후 자동으로 deal 의 거래 완료 처리
     number_created_time = models.DateTimeField(null=True, blank=True, help_text="운송장 번호 입력 시간")
 
-    @property
-    def address(self):
-        """
-        deal.buyer.address의 property 를 사용하여 string 형태로 return 합니다.
-        :return:
-        """
-        buyer = self.deal.buyer
-        if not hasattr(buyer, 'address'):
-            return None
-        return buyer.address.address
+    # @property
+    #     # def address_str(self):
+    #     #     """
+    #     #     deal.buyer.address의 property 를 사용하여 string 형태로 return 합니다.
+    #     #     :return:
+    #     #     """
+    #     #     buyer = self.deal.buyer
+    #     #     if not hasattr(buyer, 'address'):
+    #     #         return None
+    #     #     return buyer.address.address
 
 
 class DeliveryMemo(models.Model):

@@ -196,7 +196,7 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         data = request.data.copy()
 
         # test for web
-        data = {"trade": [1], "price": 230,
+        data = {"trade": [2], "price": 230,
                 "address": {"name":"이름",
                             "phone": '01032423121',
                             "zipNo":'12345',
@@ -251,14 +251,14 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         payment = Payment.objects.get(pk=serializer.validated_data['order_id'])
         user = request.user
 
-        if Product.objects.filter(trade__deal__payment=payment) \
+        if Product.objects.filter(trades__deal__payment=payment) \
                 .filter(Q(status__sold=True)|
                         Q(status__purchasing=True)|
                         Q(status__editing=True)|
                         Q(status__hiding=True)).exists():
 
             # 구매할 수 없는 상태의 제품이 존재하므로, user의 trades, deal, delivery, payment를 삭제해야함
-            product_ids = Product.objects.filter(trade__deal__payment=payment, sold=True).values_list('id', flat=True)
+            product_ids = Product.objects.filter(trades__deal__payment=payment, sold=True).values_list('id', flat=True)
 
             deals = payment.deal_set.all()
 
@@ -330,7 +330,7 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
                     serializer.save()
 
                     # 관련 상품 sold처리
-                    product_status = ProductStatus.objects.filter(product__trade__deal__payment=payment)
+                    product_status = ProductStatus.objects.filter(product__trades__deal__payment=payment)
                     product_status.update(sold=True, purchasing=False, sold_status=1)
 
                     # 하위 trade 2번처리 : 결제완료
@@ -433,7 +433,7 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         request trades 가 유효한지 확인합니다.
         """
         if self.trades.exclude(buyer=self.user).exists():
-            product_ids = Product.objects.filter(trade__in=self.trades).values_list('pk', flat=True)
+            product_ids = Product.objects.filter(trades__in=self.trades).values_list('pk', flat=True)
             TradeErrorLog.objects.create(user=self.user, product_ids=product_ids, status=1,
                                          description="잘못된 trades id 로 요청하였습니다.")
             raise exceptions.NotAcceptable(detail='잘못된 정보로 요청하였습니다.')
@@ -444,8 +444,10 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         * 결제 중 seller 가 상품의 가격을 수정하는 경우 에러가 발생합니다.
         """
         total_sum = self.payment.deal_set.aggregate(total_sum=Sum('total'))['total_sum']
-        if total_sum != int(self.request.data.get('price')):
-            product_ids = Product.objects.filter(trade__in=self.trades).values_list('pk', flat=True)
+        print(total_sum)
+        print(self.serializer.validated_data.get('price'))
+        if total_sum != int(self.serializer.validated_data.get('price')):
+            product_ids = Product.objects.filter(trades__in=self.trades).values_list('pk', flat=True)
             TradeErrorLog.objects.create(user=self.user, product_ids=product_ids, status=1,
                                          description="상품의 가격이 맞지 않습니다. 결제 중 셀러가 가격을 수정하였거나, 서버 확인이 필요합니다.")
             raise exceptions.NotAcceptable(detail='가격을 확인해주시길 바랍니다.')
@@ -461,7 +463,7 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
                                                   Q(product__status__hiding=True))
 
         if sold_products_trades.exists():
-            product_ids = Product.objects.filter(trade__in=self.trades).values_list('pk', flat=True)
+            product_ids = Product.objects.filter(trades__in=self.trades).values_list('pk', flat=True)
             # sold_products_trades.delete()  # 만약 결제된 상품이면, 카트(trades)에서 삭제해야함.
             TradeErrorLog.objects.create(user=self.user, product_ids=list(product_ids), status=1,
                                          description="판매되었거나 구매중이거나 수정중인 제품이 있습니다.")
@@ -494,7 +496,8 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         trades 를 셀러별로 묶어 deal 을 생성합니다.
         """
         bulk_list_delivery = []
-
+        print(self.trades)
+        print(self.trades.values_list('seller', flat=True))
         for seller_id in self.trades.values_list('seller', flat=True).distinct():  # 서로 다른 셀러들 결제시 한 셀러씩.
 
             trades_groupby_seller = self.trades.filter(seller_id=seller_id)  # 셀러 별로 묶기.

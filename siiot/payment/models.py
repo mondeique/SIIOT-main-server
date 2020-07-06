@@ -103,6 +103,8 @@ class Trade(models.Model):  # 카트, 상품 하나하나당 아이디 1개씩
     status = models.IntegerField(choices=STATUS, default=0)
     created_at = models.DateTimeField(auto_now_add=True, help_text="카트 담긴 시각")
     updated_at = models.DateTimeField(auto_now=True, help_text="카트 수정 시각")
+    seller = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='trades_by_seller')
+    buyer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='trades_by_buyer')
 
 
 class TradeErrorLog(models.Model):
@@ -117,7 +119,7 @@ class TradeErrorLog(models.Model):
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
-    product_ids = models.TextField()
+    product_ids = models.TextField(null=True)
     status = models.IntegerField(choices=STATUS)
     description = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
