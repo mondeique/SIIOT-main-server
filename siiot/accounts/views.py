@@ -125,7 +125,7 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         serializer = UserInfoSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @action(methods=['post'], detail=False, url_name='logout')
+    @action(methods=['get'], detail=False, url_name='logout')
     def logout(self, request):
         """
         api: POST accounts/v1/logout/
@@ -187,7 +187,7 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         user = serializer.save()
 
         serializer = UserInfoSerializer(user)
-
+        print(serializer.data)
         return Response(serializer.data, status=status.HTTP_206_PARTIAL_CONTENT)
 
 
@@ -297,7 +297,7 @@ class SMSViewSet(viewsets.GenericViewSet):
         sms_manager.create_instance(phone=phone, kind=PhoneConfirm.RESET_PASSWORD)
 
         if not sms_manager.send_sms(phone=phone):
-            return Response("Failed send sms", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response("Failed send sms", status=status.HTTP_408_REQUEST_TIMEOUT)
 
         return Response({'temp_key': sms_manager.temp_key}, status=status.HTTP_200_OK)
 
