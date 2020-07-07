@@ -8,12 +8,26 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 
 # Create your views here.
 from delivery.models import Transaction
-from mypage.models import Accounts
+from mypage.models import Accounts, Address
 from mypage.serializers import TransactionSoldHistorySerializer, TransactionPurchasedHistorySerializer, \
     TransactionSettlementHistorySerializer, OnSaleProductSerializer, MypageSerializer
 from payment.models import Wallet
+from payment.serializers import AddressSerializer
 from products.category.models import Bank
 from products.category.serializers import BankListSerializer, AccountsSerializer
+
+
+class AddressViewSet(viewsets.GenericViewSet):
+    queryset = Address.objects.all()
+    permission_classes = [IsAuthenticated, ]
+    serializer_class = AddressSerializer
+
+    @action(methods=['get'], detail=False)
+    def recent(self, request, *args, **kwargs):
+        user = request.user
+        queryset = self.get_queryset().filter(user=user).order_by('-updated_at')[:3]
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class AccountsViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
@@ -31,8 +45,11 @@ class AccountsViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         user = request.user
         if hasattr(user, 'accounts'):
             serializer = self.get_serializer(user.accounts, data=request.data)
+            print('asdasd')
         else:
-            serializer = self.get_serializer(request.data)
+            serializer = self.get_serializer(data=request.data)
+            print('asdasdasdawad')
+        print(request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -44,7 +61,7 @@ class AccountsViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class MyPageViewSet(viewsets.ModelViewSet):
+class MyPageViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     permission_classes = [AllowAny, ]
     serializer_class = MypageSerializer
 

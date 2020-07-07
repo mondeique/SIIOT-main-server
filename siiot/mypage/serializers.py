@@ -31,11 +31,11 @@ class SimpleSellerInfoSerializer(serializers.ModelSerializer):
 
 class MypageSerializer(serializers.ModelSerializer):
     user_info = serializers.SerializerMethodField()
-    sales_count = serializers.SerializerMethodField()
+    # sales_count = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['user_info', 'sales_count']
+        fields = ['user_info']
 
     def get_user_info(self, obj):
         user = obj
@@ -44,11 +44,11 @@ class MypageSerializer(serializers.ModelSerializer):
         serializer = SimpleSellerInfoSerializer(user)
         return serializer.data
 
-    def get_sales_count(self, obj):
-        user = obj
-        if user.is_anonymous:
-            return None
-        return user.products.all().count()
+    # def get_sales_count(self, obj):
+    #     user = obj
+    #     if user.is_anonymous:
+    #         return None
+    #     return user.products.all().count()
 
 
 class DeliveryPolicyInfoSerializer(serializers.ModelSerializer):
