@@ -5,6 +5,7 @@ from django.utils.safestring import mark_safe
 
 from crawler.models import CrawlProduct
 from custom_manage.sites import staff_panel
+from products.banner.models import MainBanner
 from products.category.models import FirstCategory, SecondCategory, Size, Color, Bank
 from products.models import Product, ProductUploadRequest, ProductStatus, ProdThumbnail
 from products.reply.models import ProductQuestion, ProductAnswer
@@ -146,4 +147,5 @@ staff_panel.register(PurchasedTime, PurchasedTimeStaffAdmin)
 staff_panel.register(Bank, BankStaffAdmin)
 staff_panel.register(ProductQuestion)
 staff_panel.register(ProductAnswer)
+staff_panel.register(MainBanner)
 

@@ -68,6 +68,7 @@ class ProductMainSerializer(serializers.ModelSerializer):
 
     # for develop
     price = serializers.SerializerMethodField()
+    name = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -95,6 +96,11 @@ class ProductMainSerializer(serializers.ModelSerializer):
         if obj.price:
             return obj.price
         return 999
+
+    def get_name(self, obj):
+        if obj.name:
+            return obj.name
+        return '이름 없는 상품'
 
     def get_sold(self, obj):
         return obj.status.sold
@@ -239,6 +245,8 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
 
     def get_is_liked(self, obj):
         user = self.context['request'].user
+        if user.is_anonymous:
+            return False
         liked = ProductLike.objects.filter(product=obj, user=user)
         if liked.exists():
             liked = liked.last()
@@ -504,10 +512,11 @@ class ProductSaveSerializer(serializers.ModelSerializer):
         year = validated_data.pop('purchased_year', None)
         month = validated_data.pop('purchased_month', None)
         product = super(ProductSaveSerializer, self).update(obj, validated_data)
-
+        print(year, month)
         # purchased time save
         if year and month:
             time, _ = PurchasedTime.objects.get_or_create(year=int(year), month=int(month))
+            print(time)
             product.purchased_time = time
             product.save()
 
@@ -535,7 +544,7 @@ class ProductImageSaveSerializer(serializers.ModelSerializer):
 class ProductImagesRetrieveSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImages
-        fields = ['image_key', ]
+        fields = ['image_url', ]
 
 
 class LikeSerializer(serializers.ModelSerializer):

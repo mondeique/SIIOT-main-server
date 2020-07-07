@@ -16,6 +16,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 # Create your views here.
 from core.permissions import ProductViewPermission
 from crawler.models import CrawlProduct
+from products.banner.models import MainBanner
+from products.banner.serializers import BannerSerializer
 from products.category.models import FirstCategory, SecondCategory, Size, Color, Bank
 from products.category.serializers import FirstCategorySerializer, SecondCategorySerializer, SizeSerializer, \
     ColorSerializer, BankListSerializer
@@ -113,10 +115,10 @@ class ProductViewSet(viewsets.GenericViewSet,
         receipt = data.pop('receipt_image_key', None)
         temp_products = self.get_queryset().filter(seller=user, temp_save=True)
 
-        # # temp data reset
-        # if temp_products.exists():
-        #     for temp_product in temp_products:
-        #         temp_product.delete()  # temp saved data delete
+        # temp data reset
+        if temp_products.exists():
+            for temp_product in temp_products:
+                temp_product.delete()  # temp saved data delete
 
         # save here
         serializer = self.get_serializer(data=data)
@@ -144,6 +146,9 @@ class ProductViewSet(viewsets.GenericViewSet,
             end = time.time() - start
             if end > 5: # 5초 이상 걸린 경우 slack noti
                 slack_message("[크롤링 5초이상 지연] \n 걸린시간 {}s, 요청 url: {}".
+                              format(end, product_url), 'crawl_error_upload')
+            elif not id:
+                slack_message("[크롤링 실패ㅠ] \n 걸린시간 {}s, 요청 url: {}".
                               format(end, product_url), 'crawl_error_upload')
             else:
                 slack_message("[크롤링 성공] \n 걸린시간 {}s, 요청 url: {}".
@@ -257,10 +262,9 @@ class ProductViewSet(viewsets.GenericViewSet,
         serializer = self.get_serializer(obj, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-
         # purchased time 을 int 로 받기 위해 valid 이후 data 추가함. (TODO: better code!)
-        data.update(purchased_year=data.pop('purchased_year', None))
-        data.update(purchased_month=data.pop('purchased_month', None))
+        data.update(purchased_year=request.data.pop('purchased_year', None))
+        data.update(purchased_month=request.data.pop('purchased_month', None))
         data.update(temp_save=False)  # 임시 저장은 해제해야함
         data.update(possible_upload=True)
 
@@ -348,7 +352,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         user = request.user
 
         # 판매자인 경우 count 하지 않음.
-        if user != product.seller:
+        if user.is_authenticated and user != product.seller:
             views, _ = ProductViews.objects.get_or_create(product=product)
             views.count = views.count + 1
             views.save()
@@ -386,7 +390,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         """
         return super(ProductViewSet, self).list(request, *args, **kwargs)
 
-    @action(methods=['post'], detail=True, permission_classes=[IsAuthenticated, ])
+    @action(methods=['put'], detail=True, permission_classes=[IsAuthenticated, ])
     def like(self, request, *args, **kwargs):
         """
         상품 찜 버튼을 눌렀을 때 호출되는 API입니다. 상품 product id를 url에 담아서 호출해야합니다.
@@ -398,6 +402,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         206 : 찜 버튼 호출 성공 및 status 변경
         """
         user = request.user
+        print(user)
         try:
             product = self.get_object()
         except self.get_object().DoesNotExist:
@@ -420,7 +425,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         :return:
        """
         user = request.user
-        queryset = Product.objects.filter(liked__user=user, is_active=True, status__hiding=False)\
+        queryset = Product.objects.filter(liked__user=user, liked__is_liked=True ,is_active=True, status__hiding=False)\
             .order_by('-liked__created_at')
 
         serializer = self.get_serializer(queryset, many=True, context={'request': request})
@@ -440,15 +445,14 @@ class ProductViewSet(viewsets.GenericViewSet,
         404 : list of product id 중 해당 product 가 존재하지 않는 경우
         """
         user = request.user
-        product_list = request.data.get('product_list', None)
+        product_list = request.data.get('product_id', None)
         qs = ProductLike.objects.filter(product_id__in=product_list, user=user)
-
         if not qs.exists():
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
         qs.update(is_liked=False)
 
-        return Response(status=status.HTTP_206_PARTIAL_CONTENT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ShoppingMallViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
@@ -757,3 +761,9 @@ class MainViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
         page = paginator.paginate_queryset(queryset=custom_qs, request=request)
         products_serializer = self.get_serializer(page, many=True, context={'request': request})
         return paginator.get_paginated_response(products_serializer.data)
+
+    @action(methods=['get'], detail=False)
+    def banner(self, request, *args, **kwargs):
+        qs = MainBanner.objects.filter(is_active=True).order_by('order')
+        serializer = BannerSerializer(qs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
