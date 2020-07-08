@@ -363,7 +363,6 @@ class ProductViewSet(viewsets.GenericViewSet,
     def replies(self, request, *args, **kwargs):
         """
         replies 전체 조회하는 api 입니다.
-        pagination이 구현되었습니다.
         api: GET api/v1/product/{id}/replies/
         * id: product_id
 
@@ -378,6 +377,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         if not product.questions.exists():
             return Response(status=status.HTTP_204_NO_CONTENT)
         questions = product.questions.all()
+        print(questions)
         serializer = self.get_serializer(questions, many=True)
         return Response(serializer.data)
 
@@ -465,12 +465,15 @@ class ProductViewSet(viewsets.GenericViewSet,
         color = request.query_params.get('search_color', None)
         if category:
             category_id = int(category)
-            queryset = queryset.filter(category_id=category_id)
+            queryset = queryset.filter(category__first_category_id=category_id)
         if color:
             color_id = int(color)
             queryset = queryset.filter(color_id=color_id)
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        queryset = queryset.order_by('-created_at')
+        paginator = SiiotPagination()
+        page = paginator.paginate_queryset(queryset=queryset, request=request)
+        products_serializer = self.get_serializer(page, many=True)
+        return paginator.get_paginated_response(products_serializer.data)
 
 
 class ShoppingMallViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
