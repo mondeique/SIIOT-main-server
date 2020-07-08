@@ -71,7 +71,7 @@ class ProductViewSet(viewsets.GenericViewSet,
             return ProductRepliesSerializer
         elif self.action in ['like']:
             return LikeSerializer
-        elif self.action in ['likes']:
+        elif self.action in ['likes', 'filter']:
             return ProductMainSerializer
         else:
             return super(ProductViewSet, self).get_serializer_class()
@@ -88,7 +88,6 @@ class ProductViewSet(viewsets.GenericViewSet,
         data = request.data
         url = data.get('product_url')
         valid_url = check_product_url(url)
-
         if valid_url:
             return Response({'status': False}, status=status.HTTP_200_OK)
         else:
@@ -453,6 +452,25 @@ class ProductViewSet(viewsets.GenericViewSet,
         qs.update(is_liked=False)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(methods=['get'], detail=False)
+    def filter(self, request, *args, **kwargs):
+        """
+        메인 페이지 필터 입니다.
+        api: GET /api/v1/product/filter/?search_category=1&search_color=3
+        main, likes, filter 의 return 포맷이 동일합니다.
+        """
+        queryset = self.get_queryset()
+        category = request.query_params.get('search_category', None)
+        color = request.query_params.get('search_color', None)
+        if category:
+            category_id = int(category)
+            queryset = queryset.filter(category_id=category_id)
+        if color:
+            color_id = int(color)
+            queryset = queryset.filter(color_id=color_id)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class ShoppingMallViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):

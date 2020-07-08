@@ -90,6 +90,7 @@ SECONDS_APPS = [
     'products.shopping_mall',
     'products.supplymentary',
     'products.reply',
+    'products.banner',
     'products',
     'crawler',
     'mypage',
