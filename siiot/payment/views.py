@@ -347,6 +347,7 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
                     for deal in payment.deal_set.all():
                         # 판매 승인 모델 생성 : 각 상품 별로 판매 승인이 이루어집니다.
                         Transaction.objects.create(deal=deal, due_date=datetime.now()+timedelta(hours=12))
+                        ChatRoom.objects.create(seller=deal.seller, buyer=deal.buyer, deal=deal)
 
                         # todo : 거래내역 확인 및 알림 처리
                         # reference = UserActivityReference.objects.create(deal=deal)
@@ -444,8 +445,6 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         * 결제 중 seller 가 상품의 가격을 수정하는 경우 에러가 발생합니다.
         """
         total_sum = self.payment.deal_set.aggregate(total_sum=Sum('total'))['total_sum']
-        print(total_sum)
-        print(self.serializer.validated_data.get('price'))
         if total_sum != int(self.serializer.validated_data.get('price')):
             product_ids = Product.objects.filter(trades__in=self.trades).values_list('pk', flat=True)
             TradeErrorLog.objects.create(user=self.user, product_ids=product_ids, status=1,
@@ -496,8 +495,6 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         trades 를 셀러별로 묶어 deal 을 생성합니다.
         """
         bulk_list_delivery = []
-        print(self.trades)
-        print(self.trades.values_list('seller', flat=True))
         for seller_id in self.trades.values_list('seller', flat=True).distinct():  # 서로 다른 셀러들 결제시 한 셀러씩.
 
             trades_groupby_seller = self.trades.filter(seller_id=seller_id)  # 셀러 별로 묶기.
@@ -698,7 +695,6 @@ class TransactionViewSet(viewsets.ModelViewSet):
         transaction_obj.status = 2
         transaction_obj.save()
 
-        ChatRoom.objects.create(seller=deal.seller, buyer=deal.buyer, deal=deal)
 
         return Response(status=status.HTTP_201_CREATED)
 
