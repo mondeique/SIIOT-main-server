@@ -2,7 +2,8 @@ from rest_framework import serializers, exceptions
 from core.utils import get_age_fun, test_thumbnail_image_url
 from crawler.models import CrawlProduct, CrawlDetailImage
 from mypage.serializers import SimpleSellerInfoSerializer, DeliveryPolicyInfoSerializer
-from products.category.serializers import ColorSerializer, FirstCategorySerializer, SecondCategorySerializer
+from products.category.serializers import ColorSerializer, FirstCategorySerializer, SecondCategorySerializer, \
+    SizeSerializer
 from products.models import Product, ProductImages, ProductLike, ProdThumbnail
 from products.reply.serializers import ProductReplySerializer
 from products.shopping_mall.serializers import ShoppingMallSerializer
@@ -334,7 +335,8 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_size(obj):
         if obj.size:
-            return obj.size.size_name
+            serializer = SizeSerializer(obj.size)
+            return serializer.data
         return None
 
     @staticmethod
