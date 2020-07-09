@@ -32,11 +32,7 @@ class SizeSerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
 
     def get_name(self, obj):
-        if obj.size_max:
-            return "{} ({}-{})".format(obj.size_name, obj.size, obj.size_max)
-        if obj.category.name in ['BAG', 'ACCESSORY', 'JEWELRY']:
-            return '없음'
-        return "{} ({})".format(obj.size_name, obj.size)
+        return obj.size_name
 
 
 class ColorSerializer(serializers.ModelSerializer):
