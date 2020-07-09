@@ -57,7 +57,7 @@ class Payment(models.Model):
             return
 
 
-class Deal(models.Model):  # 돈 관련 (스토어 별로)
+class Deal(models.Model):  # 돈 관련 (스토어 별로) / bootpay 에서 확실히 돈이 처리가 된 후 status가 변합니다.
     """
     셀러별 한번에 결제를 구현하기 위해 만들었습니다.
     """

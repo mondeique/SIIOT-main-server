@@ -13,7 +13,7 @@ from django.shortcuts import render, get_object_or_404
 from django.db import transaction
 
 from chat.models import ChatRoom
-from delivery.models import Delivery, Transaction
+from transaction.models import Delivery, Transaction
 from products.models import Product, ProductStatus
 from .Bootpay import BootpayApi
 # model
@@ -257,7 +257,7 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
                         Q(status__editing=True)|
                         Q(status__hiding=True)).exists():
 
-            # 구매할 수 없는 상태의 제품이 존재하므로, user의 trades, deal, delivery, payment를 삭제해야함
+            # 구매할 수 없는 상태의 제품이 존재하므로, user의 trades, deal, transaction, payment를 삭제해야함
             product_ids = Product.objects.filter(trades__deal__payment=payment, sold=True).values_list('id', flat=True)
 
             deals = payment.deal_set.all()
@@ -554,171 +554,3 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         return address
 
 
-class TransactionViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated, ]
-    serializer_class = None
-    queryset = Deal.objects.filter(trades__product__status__sold=True, trades__product__status__sold_status=1) \
-        .select_related('trades',
-                        'trades__product',
-                        'seller',
-                        'buyer',
-                        'payment',
-                        'transaction')
-    """
-    구매자 결제 이후 구매 취소, 판매 거절, 판매 승인, 구매 확정 등 결제이후 행동에 관련된 api 입니다.
-    추후 한번에 결제 구현을 위해 Deal 별로 거래 취소 단위를 묶는게 아닌, Trade 단위로 동작합니다.
-    """
-
-    def __init__(self):
-        super(TransactionViewSet, self).__init__()
-        self.trade = None
-        self.payment = None
-        self.receipt_id = None
-        self.wallet = None
-        self.deal = None
-
-    @staticmethod
-    def get_access_token():
-        bootpay = BootpayApi(application_id=load_credential("application_id"),
-                             private_key=load_credential("private_key"))
-        result = bootpay.get_access_token()
-        if result['status'] is 200:
-            return bootpay
-        else:
-            raise exceptions.APIException(detail='bootpay access token 확인바람')
-
-    @transaction.atomic
-    @action(methods=['post'], detail=True)
-    def cancel(self, request, *args, **kwargs):
-        """
-        구매자 거래 취소 : 판매자 판매 승인 이전에 구매취소가 가능합니다.
-        """
-        user = request.user
-        self.deal = self.get_object()
-        data = request.data.copy()
-        buyer_cancel_reason = data.get('reason', None)
-
-        if not buyer_cancel_reason:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-
-        # 구매자가 아니면 406
-        if self.deal.buyer != user:
-            return Response(status=status.HTTP_406_NOT_ACCEPTABLE)
-
-        transaction_obj = self.deal.transaction
-
-        # 판매 승인 되었을 시 403
-        if transaction_obj.seller_accepted:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-
-        # 구매자 구매 취소 저장
-        # TODO : post save로 알림 내역 저장. 알림 내역 저장하면서 푸쉬 알림
-        transaction_obj.buyer_cancel = True
-        transaction_obj.buyer_cancel_reason = buyer_cancel_reason
-        transaction_obj.status = -2
-        transaction_obj.save()
-
-        self.payment = self.deal.payment
-        self.receipt_id = self.payment.receipt_id
-
-        self._payment_cancel_status()
-
-        return Response({'detail': 'canceled'}, status=status.HTTP_200_OK)
-
-    @transaction.atomic
-    @action(methods=['post'], detail=True)
-    def reject(self, request, *args, **kwargs):
-        """
-        판매자 판매 거절 : 판매 거절 사유를 입력받아야 합니다.
-        """
-        data = request.data.copy()
-        seller_reject_reason = data.get('reason', None)
-
-        if not seller_reject_reason:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-
-        user = request.user
-        self.deal = self.get_object()
-
-        # 판매자가 아니면 406
-        if self.deal.seller != user:
-            return Response(status=status.HTTP_406_NOT_ACCEPTABLE)
-
-        # 판매 거절 업데이트
-        Transaction.objects.filter(deal=self.deal)\
-            .update(seller_accepted=False, seller_reject_reason=seller_reject_reason, status=-2)
-
-        self.payment = self.deal.payment
-        self.receipt_id = self.payment.receipt_id
-
-        self._payment_cancel_status()
-
-        return Response({'detail': 'canceled'}, status=status.HTTP_200_OK)
-
-    def _payment_cancel_status(self):
-        bootpay = self.get_access_token()
-        result = bootpay.cancel(self.receipt_id)
-        serializer = PaymentCancelSerialzier(self.payment, data=result['data'])
-
-        if serializer.is_valid():
-            serializer.save()
-
-            # deal : 결제 취소
-            self.deal.status = -2
-            self.deal.save()
-
-            # payment : 결제 취소 완료 : 한번에 하나 결제이기 떄문에
-            self.payment.status = 20
-            self.payment.save()
-
-            for trade in self.deal.trades.all():
-                trade.status = 2
-                trade.save()
-
-        else:
-            raise exceptions.ValidationError(detail='취소 과정에서 오류가 발생했습니다.')
-
-    @transaction.atomic
-    @action(methods=['post'], detail=True)
-    def approval(self, request, *args, **kwargs):
-        """
-        판매자 판매 승인 : 판매 승인과 동시에 채팅방이 열립니다.
-        """
-        user = request.user
-        deal = self.get_object()
-
-        if deal.seller != user:
-            return Response(status=status.HTTP_406_NOT_ACCEPTABLE)
-
-        transaction_obj = deal.transaction
-        transaction_obj.seller_accepted = True
-        transaction_obj.status = 2
-        transaction_obj.save()
-
-
-        return Response(status=status.HTTP_201_CREATED)
-
-    @transaction.atomic
-    @action(methods=['post'], detail=True)
-    def confirm(self, request, *args, **kwargs):
-        """
-        구매자 구매 확정 : 구매 확정시 정산 내역에 정산 예정일이 업데이트 됩니다.
-        """
-        user = request.user
-        deal = self.get_object()
-
-        if deal.seller != user:
-            return Response(status=status.HTTP_406_NOT_ACCEPTABLE)
-
-        transaction_obj = deal.transaction
-        transaction_obj.confirm_transaction = True
-        transaction_obj.status = 4
-        transaction_obj.save()
-
-        return Response(status=status.HTTP_200_OK)
-
-    def partial_cancel(self, request, *args, **kwargs):
-        pass
-
-    def partial_reject(self, request, *args, **kwargs):
-        pass

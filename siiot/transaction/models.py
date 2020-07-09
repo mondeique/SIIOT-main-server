@@ -24,10 +24,11 @@ class Transaction(models.Model):
     STATUS = [
         (1, '결제완료'),
         (2, '배송준비'),
-        (3, '배송완료'),
-        (4, '거래완료'),
+        (3, '배송중'),
+        (4, '배송완료'),  # 현재는 parsing 불가
+        (5, '거래완료'),
         (-1, '오류로 인한 결제실패'),
-        (-2, '거래취소'),
+        (-2, '거래취소'),  # bootpay 거래 취소 아님. 과정 중 거래취소 상태임. 환불완료 확인은 deal 에서  # 결제취소 상태
         (-3, '자동거래취소')
     ]
     deal = models.OneToOneField(Deal, related_name='transaction', on_delete=models.CASCADE)
@@ -37,13 +38,17 @@ class Transaction(models.Model):
     seller_accepted = models.NullBooleanField(help_text="승인 또는 거절을 위한 필드입니다. default=null")
     seller_reject_reason = models.CharField(null=True, blank=True, max_length=100, help_text='판매 거절 사유입니다. 구매자에게 전달됩니다.')
 
+    seller_cancel = models.NullBooleanField(help_text='판매자 구매 취소를 위한 필드입니다.')
+    seller_cancel_reason = models.CharField(null=True, blank=True, max_length=100, help_text='구매 취소 사유입니다. 판매자에게 전달됩니다.')
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    canceled_at = models.DateField(null=True, blank=True)
 
     due_date = models.DateTimeField(help_text="유효 시간입니다. created_at + 12h로 자동생성 됩니다."
                                               "유효시간이 지날 경우 cron 에서 체크하여 구매 취소 처리 합니다.")
 
-    buyer_cancel = models.NullBooleanField(help_text='구매자가 구매 취소를 위한 필드입니다.')
+    buyer_cancel = models.NullBooleanField(help_text='구매자 구매 취소를 위한 필드입니다.')
     buyer_cancel_reason = models.CharField(null=True, blank=True, max_length=100, help_text='구매 취소 사유입니다. 판매자에게 전달됩니다.')
 
     confirm_transaction = models.NullBooleanField(help_text='구매확정 필드입니다. True 로 변환 시 Wallet을 생성합니다.')
@@ -86,7 +91,8 @@ class Transaction(models.Model):
 class TransactionPartialCancelLog(models.Model):
     """
     각 상품별 구매취소, 판매 취소시 생성되는 log 모델입니다. 생성 시 Trade 상태를 구매취소로 변환합니다.
-    1차 출시에는 판매승인 이전에만 구매취소 할 수 있고, 판매승인 이후에는 구매취소가 불가능합니다.
+    [DEPRECATED] 1차 출시에는 판매승인 이전에만 구매취소 할 수 있고, 판매승인 이후에는 구매취소가 불가능합니다.
+    => [UPDATED] 1차 출시에는, 판매 승인 이전에 구매취소 가능, 판매 승인 이후에는 판매자가 구매취소 해야합니다.
     """
     trade = models.ForeignKey(Trade, related_name='cancel', on_delete=models.CASCADE)
     transaction = models.ForeignKey(Transaction, related_name='partial_cancels', on_delete=models.CASCADE)
@@ -154,7 +160,7 @@ class Delivery(models.Model):
         ('99', '롯데택배 해외특송')
     ]  # 택배사코드
 
-    deal = models.OneToOneField(Deal, related_name='delivery', on_delete=models.CASCADE,
+    deal = models.OneToOneField(Deal, related_name='dealivery', on_delete=models.CASCADE,
                                 help_text='판매승인 이후 생성되는 운송장 입력 모델입니다.')
 
     memo = models.CharField(max_length=100, null=True, blank=True, verbose_name='배송메모')

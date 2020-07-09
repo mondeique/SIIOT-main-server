@@ -31,8 +31,8 @@ class DealAdmin(admin.ModelAdmin):
 
     # def delivery_link(self, obj):
     #     return mark_safe('<a href={}>{}</a>'.format(
-    #         reverse("admin:payment_delivery_change", args=(obj.delivery.pk,)),
-    #         obj.delivery.get_state_display()
+    #         reverse("admin:payment_delivery_change", args=(obj.transaction.pk,)),
+    #         obj.transaction.get_state_display()
     #     ))
     #
     # def payment_link(self, obj):

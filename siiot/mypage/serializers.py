@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from accounts.models import User
 from core.utils import test_thumbnail_image_url, get_age_fun
 from crawler.models import CrawlProduct
-from delivery.models import Transaction
+from transaction.models import Transaction
 from mypage.models import DeliveryPolicy
 from payment.models import Wallet
 from products.models import Product

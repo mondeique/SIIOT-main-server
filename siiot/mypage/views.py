@@ -7,7 +7,7 @@ from rest_framework import viewsets, mixins
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
 # Create your views here.
-from delivery.models import Transaction
+from transaction.models import Transaction
 from mypage.models import Accounts, Address
 from mypage.serializers import TransactionSoldHistorySerializer, TransactionPurchasedHistorySerializer, \
     TransactionSettlementHistorySerializer, OnSaleProductSerializer, MypageSerializer
