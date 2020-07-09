@@ -1,6 +1,6 @@
 from rest_framework import serializers, exceptions
 from core.utils import get_age_fun, test_thumbnail_image_url
-from crawler.models import CrawlProduct
+from crawler.models import CrawlProduct, CrawlDetailImage
 from mypage.serializers import SimpleSellerInfoSerializer, DeliveryPolicyInfoSerializer
 from products.category.serializers import ColorSerializer
 from products.models import Product, ProductImages, ProductLike, ProdThumbnail
@@ -280,7 +280,23 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_crawled_images(obj):
-        return []
+        if not obj.crawl_product_id:
+            return []
+        c_product = CrawlProduct.objects.get(id=obj.crawl_product_id)
+        d_images = CrawlDetailImage.objects.filter(product=c_product)
+
+        if d_images.exclude(detail_image_crop='').exists():
+            crop_image_id = d_images.exclude(detail_image_crop='').first().values_list('pk', flat=True)
+
+            # to unify return formats. obj to queryset
+            crop_image = CrawlDetailImage.objects.filter(id=crop_image_id)
+            return CrawlProductCropImageRetrieveSerializer(crop_image, many=True).data
+
+        # logic 필요
+        d_image_center_id = int(round(d_images.count() / 2))
+        detail_images = d_images[d_image_center_id-4:d_image_center_id+2]
+        return CrawlProductImagesRetrieveSerializer(detail_images, many=True).data
+
 
     # @staticmethod
     # def get_receipt_image_url(obj):
@@ -545,6 +561,28 @@ class ProductImagesRetrieveSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImages
         fields = ['image_url', ]
+
+
+class CrawlProductImagesRetrieveSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CrawlDetailImage
+        fields = ['image_url', ]
+
+    def get_image_url(self, obj):
+        return obj.detail_image_url
+
+
+class CrawlProductCropImageRetrieveSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CrawlDetailImage
+        fields = ['image_url', ]
+
+    def get_image_url(self, obj):
+        return obj.detail_image_crop_url
 
 
 class LikeSerializer(serializers.ModelSerializer):

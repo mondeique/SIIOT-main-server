@@ -20,7 +20,7 @@ from products.banner.models import MainBanner
 from products.banner.serializers import BannerSerializer
 from products.category.models import FirstCategory, SecondCategory, Size, Color, Bank
 from products.category.serializers import FirstCategorySerializer, SecondCategorySerializer, SizeSerializer, \
-    ColorSerializer, BankListSerializer
+    ColorSerializer, BankListSerializer, CategorySearchSerializer
 from products.models import Product, ProductImages, ProductUploadRequest, ProductViews, ProductCrawlFailedUploadRequest, \
     ProductLike, ProdThumbnail, ProductStatus
 # ProductLike
@@ -29,7 +29,7 @@ from products.serializers import ProductFirstSaveSerializer, ReceiptSaveSerializ
     ProductImageSaveSerializer, ProductUploadDetailInfoSerializer, ProductTempUploadDetailInfoSerializer, \
     ProductRetrieveSerializer, ProductMainSerializer, LikeSerializer  # LikeSerializer
 from products.shopping_mall.models import ShoppingMall
-from products.shopping_mall.serializers import ShoppingMallSerializer
+from products.shopping_mall.serializers import ShoppingMallSerializer, ShoppingMallSearchSerializer
 from products.slack import slack_message
 from products.supplymentary.serializers import ShoppingMallDemandSerializer
 from products.utils import crawl_request, check_product_url
@@ -359,6 +359,7 @@ class ProductViewSet(viewsets.GenericViewSet,
 
         return super(ProductViewSet, self).retrieve(request, *args, **kwargs)
 
+
     @action(methods=['get'], detail=True)
     def replies(self, request, *args, **kwargs):
         """
@@ -401,7 +402,6 @@ class ProductViewSet(viewsets.GenericViewSet,
         206 : 찜 버튼 호출 성공 및 status 변경
         """
         user = request.user
-        print(user)
         try:
             product = self.get_object()
         except self.get_object().DoesNotExist:
@@ -660,9 +660,9 @@ class SearchViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     permission_classes = [AllowAny, ]
     serializer_class = ProductMainSerializer
 
-    @action(methods=['post'], detail=False)
+    @action(methods=['get'], detail=False)
     def product(self, request, *args, **kwargs):
-        keyword = request.data.get('keyword', None)
+        keyword = request.query_params.get('search_query', None)
 
         if len(keyword) < 1:
             return Response(status=status.HTTP_400_BAD_REQUEST)
@@ -692,6 +692,9 @@ class SearchViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
 
     @action(methods=['get'], detail=True)
     def category(self, request, *args, **kwargs):
+        """
+        api: GET api/v1/search/{id}/category/
+        """
         category = get_object_or_404(SecondCategory, pk=kwargs['pk'])
 
         products = Product.objects.filter(category=category, is_active=True) \
@@ -723,16 +726,16 @@ class SearchViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     def search_by_shop(self):
         shop_queryset = ShoppingMall.objects.prefetch_related('products')\
             .filter(name__icontains=self.keyword)
-        serializer = ShoppingMallSerializer(shop_queryset, many=True)
+        serializer = ShoppingMallSearchSerializer(shop_queryset, many=True)
         return serializer.data
 
     def search_by_category(self):
-        queryset_values = SecondCategory.objects.select_related('product_set')\
+        category_queryset = SecondCategory.objects.prefetch_related('product_set')\
             .filter(name__icontains=self.keyword)\
             .annotate(product_count=Count('product'))\
-            .values('name', 'id')\
             .order_by('-product_count')[:5]
-        return queryset_values
+        serializer = CategorySearchSerializer(category_queryset, many=True)
+        return serializer.data
 
     def search_by_product(self):
         searched_product = Product.objects.filter(name__icontains=self.keyword)\

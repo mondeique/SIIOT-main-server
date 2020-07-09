@@ -34,7 +34,8 @@ class CrawlProduct(models.Model):
 class CrawlDetailImage(models.Model):
     product = models.ForeignKey('CrawlProduct', models.DO_NOTHING, related_name="detail_images")
     detail_url = models.CharField(max_length=200)
-    detail_image = models.CharField(max_length=100) # s3 saved image name
+    detail_image = models.CharField(max_length=300, null=True, blank=True) # s3 saved image name
+    detail_image_crop = models.CharField(max_length=300, null=True, blank=True)
 
     class Meta:
         managed = False
@@ -44,5 +45,12 @@ class CrawlDetailImage(models.Model):
     def detail_image_url(self):
         s3_host = CRAWLER_S3_HOST
         key = self.detail_image
+        url = s3_host + key
+        return url
+
+    @property
+    def detail_image_crop_url(self):
+        s3_host = CRAWLER_S3_HOST
+        key = self.detail_image_crop
         url = s3_host + key
         return url
