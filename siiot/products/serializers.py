@@ -2,7 +2,7 @@ from rest_framework import serializers, exceptions
 from core.utils import get_age_fun, test_thumbnail_image_url
 from crawler.models import CrawlProduct, CrawlDetailImage
 from mypage.serializers import SimpleSellerInfoSerializer, DeliveryPolicyInfoSerializer
-from products.category.serializers import ColorSerializer
+from products.category.serializers import ColorSerializer, FirstCategorySerializer, SecondCategorySerializer
 from products.models import Product, ProductImages, ProductLike, ProdThumbnail
 from products.reply.serializers import ProductReplySerializer
 from products.shopping_mall.serializers import ShoppingMallSerializer
@@ -142,11 +142,13 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
     images = serializers.SerializerMethodField()
     crawled_images = serializers.SerializerMethodField()
 
-    category = serializers.SerializerMethodField() # category 어떻게 보여줄지?
+    first_category = serializers.SerializerMethodField() # category 어떻게 보여줄지?
+    second_category = serializers.SerializerMethodField() # category 어떻게 보여줄지?
     size = serializers.SerializerMethodField() # size name!
     color = serializers.SerializerMethodField()
     size_capture_image = serializers.SerializerMethodField() # 없으면 None
-    purchased_time = serializers.SerializerMethodField()
+    purchased_year = serializers.SerializerMethodField()
+    purchased_month = serializers.SerializerMethodField()
 
     shopping_mall = serializers.SerializerMethodField()
 
@@ -180,11 +182,13 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
                   'images', #
                   'crawled_images',
                   # 'receipt_image_url', #
-                  'category', #
+                  'first_category', #
+                  'second_category', #
                   'size', #
                   'color',
                   # 'purchased_year', #
-                  'purchased_time', #
+                  'purchased_year', #
+                  'purchased_month', #
                   'replies',
                   'product_url',
                   'delivery_policy',
@@ -313,6 +317,21 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
         return None
 
     @staticmethod
+    def get_first_category(obj):
+        if obj.category:
+            f_category = obj.category.first_category
+            serializer = FirstCategorySerializer(f_category)
+            return serializer.data
+        return None
+
+    @staticmethod
+    def get_second_category(obj):
+        if obj.category:
+            serializer = SecondCategorySerializer(obj.category)
+            return serializer.data
+        return None
+
+    @staticmethod
     def get_size(obj):
         if obj.size:
             return obj.size.size_name
@@ -337,12 +356,19 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
         return None
 
     @staticmethod
-    def get_purchased_time(obj):
+    def get_purchased_year(obj):
+        if obj.purchased_time:
+            time = obj.purchased_time
+            year = time.year
+            return year
+        return None
+
+    @staticmethod
+    def get_purchased_month(obj):
         if obj.purchased_time:
             time = obj.purchased_time
             month = time.month
-            year = time.year
-            return str(year) + '년 ' + str(month) + '월'
+            return month
         return None
 
     @staticmethod
@@ -520,7 +546,7 @@ class ProductSaveSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ['name', 'price', 'content', 'free_delivery',
-                  'category', 'color', 'size', 'purchased_time', 'possible_upload',
+                  'category', 'color', 'size', 'possible_upload',
                   'temp_save' # view 에서 넘겨줌
                   ]
 
