@@ -61,7 +61,7 @@ class ProductViewSet(viewsets.GenericViewSet,
             return ReceiptSaveSerializer
         elif self.action == 'images':
             return ProductImageSaveSerializer
-        elif self.action in ['update', 'complete']:
+        elif self.action in ['update', 'complete', 'edit']:
             return ProductSaveSerializer
         elif self.action == 'temp_data':
             return ProductTempUploadDetailInfoSerializer
@@ -302,6 +302,43 @@ class ProductViewSet(viewsets.GenericViewSet,
         ProdThumbnail.objects.create(product=product)
 
         return Response(status=status.HTTP_206_PARTIAL_CONTENT)
+
+    @action(methods=['put'], detail=True)
+    def edit(self, request, *args, **kwargs):
+        data = request.data.copy()
+        obj = self.get_object()
+        image_key_list = data.get('image_key')
+        serializer = self.get_serializer(obj, data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        data.update(purchased_year=request.data.pop('purchased_year', None))
+        data.update(purchased_month=request.data.pop('purchased_month', None))
+
+        # image save
+        if not image_key_list or not isinstance(image_key_list, list):
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+        # delete all images
+        images = obj.images.all()
+        images.delete()
+        obj.prodthumbnail.delete()
+
+        bulk_create_list = []
+        # image bulk create.. TODO : refac with serialzier
+        for key in image_key_list:
+            bulk_create_list.append(ProductImages(
+                product=obj,
+                image_key=key
+            ))
+        ProductImages.objects.bulk_create(bulk_create_list)
+
+        product = serializer.update(obj, data)
+
+        # Thumbnail image 따로 저장
+        ProdThumbnail.objects.get_or_create(product=product)
+
+        return Response(status=status.HTTP_206_PARTIAL_CONTENT)
+
 
     @action(methods=['get'], detail=False)
     def temp_data(self, request, *args, **kwargs):
