@@ -93,7 +93,8 @@ class TransactionDetailSerializer(serializers.ModelSerializer):  # 공용
 
     class Meta:
         model = Transaction
-        fields = ['products',
+        fields = ['id',
+                  'products',
                   'seller',
                   'payment_info',
                   'payment_time',
