@@ -32,8 +32,8 @@ class Address(models.Model):
         return '({}) {} {}'.format(self.zipNo, self.Addr, self.detailAddr)
 
 
-class Accounts(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, related_name='accounts', on_delete=models.CASCADE)
+class Accounts(models.Model): # todo : 정산계좌, 환불계좌 분리 가능하게
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='accounts', on_delete=models.CASCADE)
     bank = models.ForeignKey(Bank, related_name='accounts', null=True, on_delete=models.SET_NULL)
     bank_accounts = models.TextField()
     accounts_holder = models.CharField(max_length=20)

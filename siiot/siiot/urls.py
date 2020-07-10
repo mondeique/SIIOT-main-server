@@ -34,6 +34,7 @@ urlpatterns = [
     path('staff/', include('custom_manage.urls')),
     path('api/v1/', include('products.urls')),
     path('api/v1/', include('mypage.urls')),
+    path('api/v1/', include('transaction.urls')),
     path('api/v1/', include('payment.urls')),
     path('api/v1/', include('chat.urls')),
     path('accounts/v1/', include('accounts.urls')),

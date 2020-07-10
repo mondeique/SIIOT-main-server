@@ -18,10 +18,10 @@ from core.permissions import ProductViewPermission
 from crawler.models import CrawlProduct
 from products.banner.models import MainBanner
 from products.banner.serializers import BannerSerializer
-from products.category.models import FirstCategory, SecondCategory, Size, Color, Bank
+from products.category.models import FirstCategory, SecondCategory, Size, Color
 from products.category.serializers import FirstCategorySerializer, SecondCategorySerializer, SizeSerializer, \
-    ColorSerializer, BankListSerializer, CategorySearchSerializer
-from products.models import Product, ProductImages, ProductUploadRequest, ProductViews, ProductCrawlFailedUploadRequest, \
+    ColorSerializer, CategorySearchSerializer
+from products.models import Product, ProductImages, ProductViews,\
     ProductLike, ProdThumbnail, ProductStatus
 # ProductLike
 from products.reply.serializers import ProductRepliesSerializer

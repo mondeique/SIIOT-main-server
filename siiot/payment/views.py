@@ -210,8 +210,8 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
         # address 저장 후 str로 변환하여 deal 에서 사용
         self.address = data.pop('address', None)
-        address = self.save_address
-        address_str = address.address
+        self.address_obj = self.save_address  # address instance
+        address_str = self.address_obj.address
         data.update(address=address_str)
 
         self.serializer = self.get_serializer(data=data)
@@ -511,7 +511,7 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
             )
 
             bulk_list_delivery.append(Delivery(
-                address=self.serializer.validated_data['address'],
+                address=self.address_obj,
                 memo=self.serializer.validated_data['memo'],
                 mountain=self.serializer.validated_data['mountain'],
                 state=Delivery._BEFORE_INPUT,
@@ -552,5 +552,3 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         address = address_serializer.save()
 
         return address
-
-

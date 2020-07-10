@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.conf import settings
@@ -159,6 +161,7 @@ class Wallet(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     scheduled_date = models.DateTimeField(null=True, blank=True, help_text='정산 예정일')
+    settled_date = models.DateField(null=True, blank=True, help_text='정산일')
     is_settled = models.BooleanField(default=False, help_text='정산시 True')
 
     class Meta:
@@ -172,3 +175,4 @@ class Wallet(models.Model):
     def _update_status(self):
         if self.is_settled:
             self.status = 2
+            self.settled_date = datetime.now()

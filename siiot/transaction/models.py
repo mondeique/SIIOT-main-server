@@ -23,10 +23,10 @@ class Transaction(models.Model):
     """
     STATUS = [
         (1, '결제완료'),
-        (2, '배송준비'),
-        (3, '배송중'),
-        (4, '배송완료'),  # 현재는 parsing 불가
-        (5, '거래완료'),
+        (2, '배송준비'),  # 판매승인 시
+        (3, '배송중'),  # 운송장 입력 시
+        (4, '배송완료'),  # * 현재는 parsing 불가
+        (5, '거래완료'),  # 구매확정 시
         (-1, '오류로 인한 결제실패'),
         (-2, '거래취소'),  # bootpay 거래 취소 아님. 과정 중 거래취소 상태임. 환불완료 확인은 deal 에서  # 결제취소 상태
         (-3, '자동거래취소')
@@ -83,7 +83,7 @@ class Transaction(models.Model):
 
     def _create_wallet(self):
         if self.confirm_transaction:
-            amount = self.deal.trades.filter(status=1).aggregate(price=Sum('product__price'))['price']
+            amount = self.deal.remain
             date = get_wallet_scheduled_date()
             Wallet.objects.create(deal=self.deal, seller=self.deal.seller, amount=amount, scheduled_date=date)
 
@@ -167,7 +167,7 @@ class Delivery(models.Model):
 
     mountain = models.BooleanField(verbose_name='도서산간지역유무', default=False)
 
-    address = models.CharField(max_length=200)
+    address = models.ForeignKey(Address, on_delete=models.SET_NULL, null=True, related_name='delivery')
 
     state = models.IntegerField(choices=states, default=1)
     code = models.TextField(choices=codes, null=True, blank=True, verbose_name='택배사코드')

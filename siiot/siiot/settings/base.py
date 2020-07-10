@@ -97,6 +97,7 @@ SECONDS_APPS = [
     'payment',
     'user_activity',
     'transaction',
+    'reviews',
     # 'api',
     # 'notice',
     # 'landing',

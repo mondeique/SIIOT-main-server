@@ -1,16 +1,46 @@
+import datetime
+
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
 from accounts.models import User
 from core.utils import test_thumbnail_image_url, get_age_fun
 from crawler.models import CrawlProduct
+from products.category.models import Bank
 from transaction.models import Transaction
-from mypage.models import DeliveryPolicy
+from mypage.models import DeliveryPolicy, Accounts
 from payment.models import Wallet
 from products.models import Product
 
 
-class SimpleSellerInfoSerializer(serializers.ModelSerializer):
+class AccountsSerializer(serializers.ModelSerializer):
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
+    class Meta:
+        model = Accounts
+        fields = '__all__'
+
+
+class SimpleAccountsSerializer(serializers.ModelSerializer):
+    accounts = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Accounts
+        fields = ['id', 'accounts']
+
+    def get_accounts(self, obj):
+        bank = obj.bank.bank
+        accounts = obj.bank_accounts
+        return bank + ' ' + accounts
+
+
+class BankListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Bank
+        fields = ['id', 'bank']
+
+
+class SimpleUserInfoSerializer(serializers.ModelSerializer):
     profile_img = serializers.SerializerMethodField()
     star_rating = serializers.SerializerMethodField()
 
@@ -31,7 +61,6 @@ class SimpleSellerInfoSerializer(serializers.ModelSerializer):
 
 class MypageSerializer(serializers.ModelSerializer):
     user_info = serializers.SerializerMethodField()
-    # sales_count = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -41,14 +70,8 @@ class MypageSerializer(serializers.ModelSerializer):
         user = obj
         if user.is_anonymous:
             return None
-        serializer = SimpleSellerInfoSerializer(user)
+        serializer = SimpleUserInfoSerializer(user)
         return serializer.data
-
-    # def get_sales_count(self, obj):
-    #     user = obj
-    #     if user.is_anonymous:
-    #         return None
-    #     return user.products.all().count()
 
 
 class DeliveryPolicyInfoSerializer(serializers.ModelSerializer):
@@ -62,11 +85,12 @@ class TransactionHistorySerializer(serializers.ModelSerializer):
     thumbnail_image_url = serializers.SerializerMethodField()
     price = serializers.SerializerMethodField()
     name = serializers.SerializerMethodField()
-    age = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    created_at = serializers.SerializerMethodField()
 
     class Meta:
         model = Transaction
-        fields = ['id', 'thumbnail_image_url', 'price', 'name', 'age']
+        fields = ['id', 'thumbnail_image_url', 'price', 'name', 'status', 'created_at']
 
     def get_thumbnail_image_url(self, obj):
         self.product = obj.deal.trades.first().product
@@ -80,90 +104,69 @@ class TransactionHistorySerializer(serializers.ModelSerializer):
                 return test_thumbnail_image_url
         return CrawlProduct.objects.get(id=self.product.crawl_product_id).thumbnail_image_url
 
+    def get_status(self, obj):
+        status = obj.status
+        if status == 1:
+            return '승인 대기중'
+        elif status == 2:
+            return '배송 준비중'
+        elif status == 3:
+            return '배송 중'
+        elif status == 5:
+            return '거래완료'
+        elif status in [-1, -2, -3]:
+            return '거래취소'
+        return None
+
     def get_price(self, obj):
-        self.deal = obj.deal
-        return self.deal.remain
+        deal = obj.deal
+        return deal.total
 
     def get_name(self, obj):
-        trades = self.deal.trades.all()
+        trades = obj.deal.trades.all()
         if trades.count() > 1:
             name = trades.first().product.name + ' 외 ' + str(trades.count() - 1) + '건'
         else:
             name = trades.first().product.name
         return name
 
-    def get_age(self, obj):
-        return get_age_fun(self.deal)
+    def get_created_at(self, obj):
+        reformed_created_at = datetime.datetime.strftime(obj.created_at, '%y.%m.%d')
+        return reformed_created_at
 
 
-class TransactionSoldHistorySerializer(TransactionHistorySerializer):
-    status = serializers.SerializerMethodField()
-    buyer_nickname = serializers.SerializerMethodField()
-    action_status = serializers.SerializerMethodField()
+class SoldHistorySerializer(TransactionHistorySerializer):
+    other_party_nickname = serializers.SerializerMethodField()
 
     class Meta(TransactionHistorySerializer.Meta):
-        fields = TransactionHistorySerializer.Meta.fields + ['status', 'buyer_nickname', 'action_status']
+        fields = TransactionHistorySerializer.Meta.fields + ['other_party_nickname']
 
-    def get_status(self, obj):
-        status = obj.status
-        if status in [1, 2, 3, 4]:
-            return obj.get_status_display()
-        elif status in [-2, -3]:
-            return '환불완료'
-        else:
-            return None
-
-    def get_action_status(self, obj): # True 인 경우, 판매승인, 판매 거절 버튼 활성화
-        status = obj.status
-        if status == 1:
-            return 1  # 판매 승인 버튼 활성화 : 판매 거절은 상세 내역에서서
-        return 0
-
-    def get_buyer_nickname(self, obj):
-        buyer = self.deal.buyer
+    def get_other_party_nickname(self, obj):
+        buyer = obj.deal.buyer
         return buyer.nickname
 
 
-class TransactionPurchasedHistorySerializer(TransactionHistorySerializer):
-    status = serializers.SerializerMethodField()
-    seller_nickname = serializers.SerializerMethodField()
-    action_status = serializers.SerializerMethodField()
+class PurchasedHistorySerializer(TransactionHistorySerializer):
+    other_party_nickname = serializers.SerializerMethodField()
 
     class Meta(TransactionHistorySerializer.Meta):
-        fields = TransactionHistorySerializer.Meta.fields + ['status', 'seller_nickname', 'action_status']
+        fields = TransactionHistorySerializer.Meta.fields + ['other_party_nickname']
 
-    def get_status(self, obj):
-        status = obj.status
-        if status in [1, 2, 3, 4]:
-            return obj.get_status_display()
-        elif status in [-2, -3]:
-            return '환불완료'
-        else:
-            return None
-
-    def get_action_status(self, obj): # True 인 경우, 판매승인, 판매 거절 버튼 활성화
-        status = obj.status
-        if status == 1:
-            return 1  # 거래 취소 가능
-        elif status in [2, 3]:
-            return 2  # 구매 확정 가능
-        return 0
-
-    def get_seller_nickname(self, obj):
-        seller = self.deal.seller
+    def get_other_party_nickname(self, obj):
+        seller = obj.deal.seller
         return seller.nickname
 
 
-class TransactionSettlementHistorySerializer(serializers.ModelSerializer):
+class WalletHistorySerializer(serializers.ModelSerializer):
     thumbnail_image_url = serializers.SerializerMethodField()
     name = serializers.SerializerMethodField()
     age = serializers.SerializerMethodField()
     scheduled_date = serializers.SerializerMethodField()
-    buyer_nickname = serializers.SerializerMethodField()
+    nickname = serializers.SerializerMethodField()
 
     class Meta:
         model = Wallet
-        fields = ['id', 'status', 'thumbnail_image_url', 'amount', 'name', 'age', 'buyer_nickname', 'scheduled_date']
+        fields = ['id', 'status', 'thumbnail_image_url', 'amount', 'name', 'age', 'buyer_nickname', 'scheduled_date', 'settled_date']
 
     def get_thumbnail_image_url(self, obj):
         product = obj.deal.trades.first()
@@ -192,20 +195,21 @@ class TransactionSettlementHistorySerializer(serializers.ModelSerializer):
         date = obj.scheduled_date
         return date.strftime('%y-%m-%d')
 
-    def get_buyer_nickname(self, obj):
-        buyer = obj.deal.buyer
-        return buyer.nickname
+    def get_nickname(self, obj):
+        seller = obj.deal.seller
+        return seller.nickname
 
 
 class OnSaleProductSerializer(serializers.ModelSerializer):
     thumbnail_image_url = serializers.SerializerMethodField()
-    views = serializers.SerializerMethodField()
-    age = serializers.SerializerMethodField()  # ex: 3 days ago
+    view_count = serializers.SerializerMethodField()
+    like_count = serializers.SerializerMethodField()
     sold = serializers.SerializerMethodField()
+    uploaded_at = serializers.SerializerMethodField()  # ex: 2020.07.05
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'price', 'thumbnail_image_url', 'views', 'age', 'sold']
+        fields = ['id', 'name', 'price', 'thumbnail_image_url', 'view_count', 'like_count', 'sold', 'uploaded_at']
 
     @staticmethod
     def get_thumbnail_image_url(obj):
@@ -220,14 +224,21 @@ class OnSaleProductSerializer(serializers.ModelSerializer):
         return CrawlProduct.objects.get(id=obj.crawl_product_id).thumbnail_image_url
 
     @staticmethod
-    def get_views(obj):
+    def get_view_count(obj):
         if hasattr(obj, 'views'):
             return obj.views.view_counts
         return 0
 
     @staticmethod
-    def get_age(obj):
-        return get_age_fun(obj)
+    def get_like_count(obj):
+        if obj.liked.exists():
+            return obj.liked.all().count()
+        return 0
+
+    @staticmethod
+    def get_uploaded_at(obj):
+        reformat_created_at = datetime.datetime.strftime(obj.created_at, '%y.%m.%d')
+        return reformat_created_at
 
     @staticmethod
     def get_sold(obj):

@@ -41,18 +41,6 @@ class ColorSerializer(serializers.ModelSerializer):
         fields = ['id', 'color', 'color_code']
 
 
-class AccountsSerializer(serializers.ModelSerializer):
-    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
-
-    class Meta:
-        model = Accounts
-        fields = '__all__'
-
-
-class BankListSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Bank
-        fields = ['id', 'bank']
 
 
 class CategorySearchSerializer(serializers.ModelSerializer):

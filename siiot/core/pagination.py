@@ -18,7 +18,7 @@ def _reverse_ordering(ordering_tuple):
 
 
 class SiiotPagination(PageNumberPagination):
-    page_size = 10  # 한페이지에 담기는 개수
+    page_size = 20  # 한페이지에 담기는 개수
 
     def get_next_page_num(self):
         if not self.page.has_next():

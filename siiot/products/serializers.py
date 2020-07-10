@@ -1,7 +1,7 @@
 from rest_framework import serializers, exceptions
 from core.utils import get_age_fun, test_thumbnail_image_url
 from crawler.models import CrawlProduct, CrawlDetailImage
-from mypage.serializers import SimpleSellerInfoSerializer, DeliveryPolicyInfoSerializer
+from mypage.serializers import SimpleUserInfoSerializer, DeliveryPolicyInfoSerializer
 from products.category.serializers import ColorSerializer, FirstCategorySerializer, SecondCategorySerializer, \
     SizeSerializer
 from products.models import Product, ProductImages, ProductLike, ProdThumbnail
@@ -158,7 +158,7 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
     age = serializers.SerializerMethodField()  # ex: 3 days ago
 
     delivery_policy = serializers.SerializerMethodField()
-    seller = SimpleSellerInfoSerializer()
+    seller = SimpleUserInfoSerializer()
 
     # other_seller_products = serializers.SerializerMethodField()  # def 안에 simple product serializer 활용하여 data return
     # related_products = serializers.SerializerMethodField()  # "
