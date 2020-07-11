@@ -18,7 +18,7 @@ from core.permissions import ProductViewPermission
 from crawler.models import CrawlProduct
 from products.banner.models import MainBanner
 from products.banner.serializers import BannerSerializer
-from products.category.models import FirstCategory, SecondCategory, Size, Color
+from products.category.models import FirstCategory, SecondCategory, Size, Color, PopularTempKeyword
 from products.category.serializers import FirstCategorySerializer, SecondCategorySerializer, SizeSerializer, \
     ColorSerializer, CategorySearchSerializer
 from products.models import Product, ProductImages, ProductViews,\
@@ -27,14 +27,15 @@ from products.models import Product, ProductImages, ProductViews,\
 from products.reply.serializers import ProductRepliesSerializer
 from products.serializers import ProductFirstSaveSerializer, ReceiptSaveSerializer, ProductSaveSerializer, \
     ProductImageSaveSerializer, ProductUploadDetailInfoSerializer, ProductTempUploadDetailInfoSerializer, \
-    ProductRetrieveSerializer, ProductMainSerializer, LikeSerializer  # LikeSerializer
+    ProductRetrieveSerializer, ProductMainSerializer, LikeSerializer, \
+    RecentlySearchedKeywordSerializer, SearchDefaultSerializer, PopularTempKeywordSerializer  # LikeSerializer
 from products.shopping_mall.models import ShoppingMall
 from products.shopping_mall.serializers import ShoppingMallSerializer, ShoppingMallSearchSerializer
 from products.slack import slack_message
 from products.supplymentary.serializers import ShoppingMallDemandSerializer
 from products.utils import crawl_request, check_product_url
 from core.pagination import SiiotPagination
-from user_activity.models import RecentlyViewedProduct
+from user_activity.models import RecentlyViewedProduct, RecentlySearchedKeyword
 
 
 class ProductViewSet(viewsets.GenericViewSet,
@@ -697,9 +698,24 @@ class SearchViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     permission_classes = [AllowAny, ]
     serializer_class = ProductMainSerializer
 
+    @action(methods=['get'], detail=False, serializer_class=SearchDefaultSerializer)
+    def default(self, request, *args, **kwargs):
+        user = request.user
+        popular_keyword_qs = PopularTempKeyword.objects.filter(is_active=True)[:3]
+        p_serializer = PopularTempKeywordSerializer(popular_keyword_qs, many=True)
+
+        if user.is_anonymous:
+            return Response({'popular_keyword': p_serializer.data, 'searched_keyword': []})
+
+        searched_keyword_qs = user.recently_searched_keywords.order_by('-updated_at')
+        s_serializer = RecentlySearchedKeywordSerializer(searched_keyword_qs, many=True)
+
+        return Response({'popular_keyword': p_serializer.data, 'searched_keyword': s_serializer.data})
+
     @action(methods=['get'], detail=False)
     def product(self, request, *args, **kwargs):
         keyword = request.query_params.get('search_query', None)
+        user = request.user
 
         if len(keyword) < 1:
             return Response(status=status.HTTP_400_BAD_REQUEST)
@@ -708,6 +724,10 @@ class SearchViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
             .filter(status__sold=False, status__hiding=False)\
             .order_by('-created_at')
 
+        # save recently searched keyword
+        if user.is_authenticated:
+            RecentlySearchedKeyword.objects.update_or_create(user=user, keyword=keyword)
+
         paginator = SiiotPagination()
         page = paginator.paginate_queryset(products, request)
         serializer = self.get_serializer(page, many=True)
@@ -715,12 +735,17 @@ class SearchViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
 
     @action(methods=['get'], detail=True)
     def shopping_mall(self, request, *args, **kwargs):
+        user = request.user
 
         shopping_mall = get_object_or_404(ShoppingMall, pk=kwargs['pk'])
 
         products = Product.objects.filter(shopping_mall=shopping_mall, is_active=True)\
             .filter(status__sold=False, status__hiding=False)\
             .order_by('-created_at')
+
+        # save recently searched keyword
+        if user.is_authenticated:
+            RecentlySearchedKeyword.objects.update_or_create(user=user, keyword=shopping_mall.name)
 
         paginator = SiiotPagination()
         page = paginator.paginate_queryset(products, request)
@@ -732,11 +757,17 @@ class SearchViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
         """
         api: GET api/v1/search/{id}/category/
         """
+        user = request.user
+
         category = get_object_or_404(SecondCategory, pk=kwargs['pk'])
 
         products = Product.objects.filter(category=category, is_active=True) \
             .filter(status__sold=False, status__hiding=False) \
             .order_by('-created_at')
+
+        # save recently searched keyword
+        if user.is_authenticated:
+            RecentlySearchedKeyword.objects.update_or_create(user=user, keyword=category.name)
 
         paginator = SiiotPagination()
         page = paginator.paginate_queryset(products, request)

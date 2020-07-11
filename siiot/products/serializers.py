@@ -2,6 +2,7 @@ from rest_framework import serializers, exceptions
 from core.utils import get_age_fun, test_thumbnail_image_url
 from crawler.models import CrawlProduct, CrawlDetailImage
 from mypage.serializers import SimpleUserInfoSerializer, DeliveryPolicyInfoSerializer
+from products.category.models import PopularTempKeyword
 from products.category.serializers import ColorSerializer, FirstCategorySerializer, SecondCategorySerializer, \
     SizeSerializer
 from products.models import Product, ProductImages, ProductLike, ProdThumbnail
@@ -9,6 +10,7 @@ from products.reply.serializers import ProductReplySerializer
 from products.shopping_mall.serializers import ShoppingMallSerializer
 from products.supplymentary.models import PurchasedReceipt, PurchasedTime
 from products.utils import check_product_url
+from user_activity.models import RecentlySearchedKeyword
 
 
 class ProductFirstSaveSerializer(serializers.ModelSerializer):
@@ -617,3 +619,36 @@ class LikeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductLike
         fields = ['is_liked']
+
+
+class RecentlySearchedKeywordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RecentlySearchedKeyword
+        fields = ['id', 'keyword']
+
+class PopularTempKeywordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PopularTempKeyword
+        fields = ['id', 'keyword']
+
+
+class SearchDefaultSerializer(serializers.Serializer):
+    popular_keywords = serializers.SerializerMethodField()
+    searched_keywords = serializers.SerializerMethodField()
+
+    class Meta:
+        fields = ['popular_keywords', 'searched_keywords']
+
+    def get_popular_keywords(self):
+        qs = PopularTempKeyword.objects.filter(is_active=True)[:3]
+        print(qs)
+        serializer = PopularTempKeywordSerializer(qs, many=True)
+        return serializer.data
+
+    def get_searched_keywords(self):
+        user = self.context['request'].user
+        if user.is_anonymous:
+            return None
+        qs = user.recently_searched_keywords.order_by('-updated_at')
+        serializer = RecentlySearchedKeywordSerializer(qs, many=True)
+        return serializer.data

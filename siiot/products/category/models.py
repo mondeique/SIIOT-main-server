@@ -89,3 +89,10 @@ class Bank(models.Model):
 
     def __str__(self):
         return '{}] {}'.format(self.id, self.bank)
+
+
+class PopularTempKeyword(models.Model):
+    keyword = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
