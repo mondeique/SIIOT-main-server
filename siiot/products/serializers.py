@@ -197,6 +197,7 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
                   'delivery_policy',
                   'seller',
                   'size_capture_image',
+                  'condition'
                   # 'other_seller_products',
                   # 'related_products'
                   ]
@@ -293,15 +294,14 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
         d_images = CrawlDetailImage.objects.filter(product=c_product)
 
         if d_images.exclude(detail_image_crop='').exists():
-            crop_image_id = d_images.exclude(detail_image_crop='').first().values_list('pk', flat=True)
-
+            crop_image_id = d_images.exclude(detail_image_crop='').values_list('pk', flat=True)
             # to unify return formats. obj to queryset
-            crop_image = CrawlDetailImage.objects.filter(id=crop_image_id)
+            crop_image = CrawlDetailImage.objects.filter(id__in=crop_image_id)
             return CrawlProductCropImageRetrieveSerializer(crop_image, many=True).data
 
         # logic 필요
         d_image_center_id = int(round(d_images.count() / 2))
-        detail_images = d_images[d_image_center_id-4:d_image_center_id+2]
+        detail_images = d_images[d_image_center_id-4:d_image_center_id+4]
         return CrawlProductImagesRetrieveSerializer(detail_images, many=True).data
 
 

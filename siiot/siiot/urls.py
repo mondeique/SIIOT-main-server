@@ -37,6 +37,7 @@ urlpatterns = [
     path('api/v1/', include('transaction.urls')),
     path('api/v1/', include('payment.urls')),
     path('api/v1/', include('chat.urls')),
+    path('api/v1/', include('notice.urls')),
     path('accounts/v1/', include('accounts.urls')),
     # path('chat/', include('chats.urls')),
     path('pay_test/', pay_test, name='paytest'),

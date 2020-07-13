@@ -206,10 +206,11 @@ class OnSaleProductSerializer(serializers.ModelSerializer):
     like_count = serializers.SerializerMethodField()
     sold = serializers.SerializerMethodField()
     uploaded_at = serializers.SerializerMethodField()  # ex: 2020.07.05
+    is_owner = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'price', 'thumbnail_image_url', 'view_count', 'like_count', 'sold', 'uploaded_at']
+        fields = ['id', 'name', 'price', 'thumbnail_image_url', 'view_count', 'like_count', 'sold', 'is_owner', 'uploaded_at']
 
     @staticmethod
     def get_thumbnail_image_url(obj):
@@ -244,3 +245,11 @@ class OnSaleProductSerializer(serializers.ModelSerializer):
     def get_sold(obj):
         status = obj.status
         return status.sold
+
+    def get_is_owner(self, obj):
+        user = self.context['request'].user
+        if user.is_anonymous:
+            return False
+        if obj.seller == user:
+            return True
+        return False

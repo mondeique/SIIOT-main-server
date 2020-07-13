@@ -139,9 +139,11 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class ProfileSerializer(serializers.ModelSerializer):
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
     class Meta:
         model = Profile
-        fields = ['user', 'thumbnail_img', 'introduce']
+        fields = ['user', 'profile_img']
 
 
 class ChatUserInfoSerializer(serializers.ModelSerializer):

@@ -38,11 +38,7 @@ from core.pagination import SiiotPagination
 from user_activity.models import RecentlyViewedProduct, RecentlySearchedKeyword
 
 
-class ProductViewSet(viewsets.GenericViewSet,
-                     mixins.CreateModelMixin,
-                     mixins.UpdateModelMixin,
-                     mixins.RetrieveModelMixin,
-                     mixins.ListModelMixin):
+class ProductViewSet(viewsets.ModelViewSet):
     permission_classes = [ProductViewPermission, ]
     queryset = Product.objects.all().select_related('seller', 'seller__profile', 'seller__delivery_policy')\
                               .select_related('receipt', 'category', 'purchased_time', 'color', 'size', 'views')
@@ -125,9 +121,6 @@ class ProductViewSet(viewsets.GenericViewSet,
         serializer.is_valid(raise_exception=True)
         product = serializer.save()
 
-        # status save
-        ProductStatus.objects.get_or_create(product=product)
-
         if receipt:
             serializer = ReceiptSaveSerializer(data=receipt)
             serializer.is_valid(raise_exception=True)
@@ -145,13 +138,13 @@ class ProductViewSet(viewsets.GenericViewSet,
             sucess, id = crawl_request(product_url)
             end = time.time() - start
             if end > 5: # 5초 이상 걸린 경우 slack noti
-                slack_message("[크롤링 5초이상 지연] \n 걸린시간 {}s, 요청 url: {}".
+                slack_message("[최소정보 크롤링 5초이상 지연] \n 걸린시간 {}s, 요청 url: {}".
                               format(end, product_url), 'crawl_error_upload')
             elif not id:
-                slack_message("[크롤링 실패ㅠ] \n 걸린시간 {}s, 요청 url: {}".
+                slack_message("[최소정보 크롤링 실패ㅠ] \n 걸린시간 {}s, 요청 url: {}".
                               format(end, product_url), 'crawl_error_upload')
             else:
-                slack_message("[크롤링 성공] \n 걸린시간 {}s, 요청 url: {}".
+                slack_message("[최소정보 크롤링 성공] \n 걸린시간 {}s, 요청 url: {}".
                               format(end, product_url), 'crawl_error_upload')
             if sucess:
                 crawl_product_id = id
@@ -161,6 +154,7 @@ class ProductViewSet(viewsets.GenericViewSet,
             print(time.time()-start)
         # product crawl id save
         product.crawl_product_id = crawl_product_id
+        product.product_url = product_url
         product.save()
 
         # 미개봉 상품인 경우, 해당 api 호출 후 구매내역 첨부하는 페이지로..
@@ -268,6 +262,13 @@ class ProductViewSet(viewsets.GenericViewSet,
         data.update(temp_save=False)  # 임시 저장은 해제해야함
         data.update(possible_upload=True)
 
+        temp_products = self.get_queryset().filter(seller=request.user, temp_save=True)
+
+        # temp data reset
+        if temp_products.exists():
+            for temp_product in temp_products:
+                temp_product.delete()  # temp saved data delete
+
         # image save
         if not image_key_list or not isinstance(image_key_list, list):
             return Response(status=status.HTTP_400_BAD_REQUEST)
@@ -299,6 +300,8 @@ class ProductViewSet(viewsets.GenericViewSet,
             # 이 경우만 메인에 노출됨  possible_upload=True, crawl_product_id exists
             product = serializer.update(obj, data)
 
+            # status save
+        obj = ProductStatus.objects.create(product=product)
         # Thumbnail image 따로 저장
         ProdThumbnail.objects.create(product=product)
 
@@ -339,7 +342,6 @@ class ProductViewSet(viewsets.GenericViewSet,
         ProdThumbnail.objects.get_or_create(product=product)
 
         return Response(status=status.HTTP_206_PARTIAL_CONTENT)
-
 
     @action(methods=['get'], detail=False)
     def temp_data(self, request, *args, **kwargs):
@@ -397,7 +399,6 @@ class ProductViewSet(viewsets.GenericViewSet,
 
         return super(ProductViewSet, self).retrieve(request, *args, **kwargs)
 
-
     @action(methods=['get'], detail=True)
     def replies(self, request, *args, **kwargs):
         """
@@ -416,7 +417,6 @@ class ProductViewSet(viewsets.GenericViewSet,
         if not product.questions.exists():
             return Response(status=status.HTTP_204_NO_CONTENT)
         questions = product.questions.all()
-        print(questions)
         serializer = self.get_serializer(questions, many=True)
         return Response(serializer.data)
 
@@ -498,7 +498,7 @@ class ProductViewSet(viewsets.GenericViewSet,
         api: GET /api/v1/product/filter/?search_category=1&search_color=3
         main, likes, filter 의 return 포맷이 동일합니다.
         """
-        queryset = self.get_queryset()
+        queryset = self.get_queryset().filter(temp_save=False, is_active=True)
         category = request.query_params.get('search_category', None)
         color = request.query_params.get('search_color', None)
         if category:
@@ -512,6 +512,32 @@ class ProductViewSet(viewsets.GenericViewSet,
         page = paginator.paginate_queryset(queryset=queryset, request=request)
         products_serializer = self.get_serializer(page, many=True)
         return paginator.get_paginated_response(products_serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        product = self.get_object()
+        product.is_active = False
+        product.save()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(methods=['put'], detail=True)
+    def sold(self, request, *args, **kwargs):
+        product = self.get_object()
+        prod_status = product.status
+
+        if prod_status.sold_status == 1:
+            return Response(status=status.HTTP_403_FORBIDDEN)  # 결제 된 상품 다시 원상복구 불가
+
+        if prod_status.sold:
+            prod_status.sold = False
+            prod_status.sold_status = None
+        else:
+            prod_status.sold = True
+            prod_status.sold_status = 2
+
+        prod_status.save()
+
+        return Response(status=status.HTTP_206_PARTIAL_CONTENT)
 
 
 class ShoppingMallViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
@@ -565,7 +591,7 @@ class ShoppingMallViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
 
 
 class ProductCategoryViewSet(viewsets.GenericViewSet):
-    permission_classes = [IsAuthenticated, ]
+    permission_classes = [AllowAny, ]
 
     def get_queryset(self):
         queryset = FirstCategory.objects.filter(is_active=True, gender=FirstCategory.WOMAN)
@@ -720,7 +746,7 @@ class SearchViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
         if len(keyword) < 1:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
-        products = Product.objects.filter(name__icontains=keyword, is_active=True)\
+        products = Product.objects.filter(name__icontains=keyword, is_active=True, temp_save=False)\
             .filter(status__sold=False, status__hiding=False)\
             .order_by('-created_at')
 
@@ -739,7 +765,7 @@ class SearchViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
 
         shopping_mall = get_object_or_404(ShoppingMall, pk=kwargs['pk'])
 
-        products = Product.objects.filter(shopping_mall=shopping_mall, is_active=True)\
+        products = Product.objects.filter(shopping_mall=shopping_mall, is_active=True, temp_save=False)\
             .filter(status__sold=False, status__hiding=False)\
             .order_by('-created_at')
 
@@ -761,7 +787,7 @@ class SearchViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
 
         category = get_object_or_404(SecondCategory, pk=kwargs['pk'])
 
-        products = Product.objects.filter(category=category, is_active=True) \
+        products = Product.objects.filter(category=category, is_active=True, temp_save=False) \
             .filter(status__sold=False, status__hiding=False) \
             .order_by('-created_at')
 
@@ -814,7 +840,7 @@ class SearchViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
 
 class MainViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     queryset = Product.objects\
-        .filter(is_active=True)\
+        .filter(is_active=True, temp_save=False)\
         .filter(status__sold=False, status__hiding=False)\
         .select_related('seller', 'color', 'size', 'category', 'purchased_time')\
         .select_related('prodthumbnail', 'views')\

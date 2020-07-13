@@ -110,8 +110,8 @@ class StoreViewSet(viewsets.GenericViewSet):
         """
         retrieve_user = self.get_object()
 
-        sales_products = list(retrieve_user.products.filter(status__sold=False).order_by('-created_at'))
-        sold_products = list(retrieve_user.products.filter(status__sold=True).order_by('-created_at'))
+        sales_products = list(retrieve_user.products.filter(status__sold=False, temp_save=False).order_by('-created_at'))
+        sold_products = list(retrieve_user.products.filter(status__sold=True, temp_save=False).order_by('-created_at'))
 
         products = sales_products + sold_products
 

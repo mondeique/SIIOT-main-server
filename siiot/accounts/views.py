@@ -190,6 +190,20 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         print(serializer.data)
         return Response(serializer.data, status=status.HTTP_206_PARTIAL_CONTENT)
 
+    @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated, ])
+    def profile(self, request, *args, **kwargs):
+        """
+        api: POST accounts/v1/profile/
+
+        data = {profile_img: image file}
+        """
+        user = request.user
+        profile = user.profile
+        serializer = self.get_serializer(profile, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(status=status.HTTP_206_PARTIAL_CONTENT)
+
 
 class NicknameViewSet(viewsets.GenericViewSet, mixins.UpdateModelMixin):
     permission_classes = [IsAuthenticated, ]
@@ -358,8 +372,6 @@ class SMSViewSet(viewsets.GenericViewSet):
 
         if obj.certification_number != key:
             return Response("Not match key & server key", status=status.HTTP_404_NOT_FOUND)
-        print(obj.certification_number, type(obj.certification_number))
-        print(key, type(key))
         obj.is_confirmed = True
         obj.save()
 
