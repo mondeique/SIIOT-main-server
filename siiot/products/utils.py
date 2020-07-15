@@ -34,12 +34,8 @@ def crawl_request(product_url):
 def check_product_url(product_url):
     if not product_url.startswith('http'):
         product_url = 'http://' + product_url
-
+    print(product_url)
     response = requests.post(product_url)
-
-    print(response)
-    print('asdasd')
-    print(response)
 
     if response.status_code != 200:
         # 403 forbidden 인 경우 cfscrape로 요청 시도

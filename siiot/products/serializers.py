@@ -139,6 +139,7 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
     discount_rate = serializers.SerializerMethodField()
     is_receipt = serializers.SerializerMethodField()
     views = serializers.SerializerMethodField()
+    like_count = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
     sold = serializers.SerializerMethodField()
 
@@ -176,6 +177,7 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
                   'valid_url', #
                   'age', #
                   'views', #
+                  'like_count',
                   # 'crawl_data', #
                   'is_receipt', #
                   'shopping_mall',  # 쇼핑몰 로고?
@@ -235,6 +237,12 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
     def get_views(obj):
         if hasattr(obj, 'views'):
             return obj.views.view_counts
+        return 0
+
+    @staticmethod
+    def get_like_count(obj):
+        if obj.liked.exists():
+            return obj.liked.all().count()
         return 0
 
     @staticmethod
