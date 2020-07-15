@@ -108,6 +108,12 @@ class ProductViewSet(viewsets.ModelViewSet):
         """
         user = request.user
         data = request.data.copy()
+
+        if not data.get('product_url').startswith('http'):
+            product_url = data.pop('product_url')
+            product_url = 'http://' + product_url
+            data.update(product_url=product_url)
+
         receipt = data.pop('receipt_image_key', None)
         temp_products = self.get_queryset().filter(seller=user, temp_save=True)
 
@@ -300,8 +306,8 @@ class ProductViewSet(viewsets.ModelViewSet):
             # 이 경우만 메인에 노출됨  possible_upload=True, crawl_product_id exists
             product = serializer.update(obj, data)
 
-            # status save
-        obj = ProductStatus.objects.create(product=product)
+        # status save
+        ProductStatus.objects.create(product=product)
         # Thumbnail image 따로 저장
         ProdThumbnail.objects.create(product=product)
 
@@ -388,6 +394,10 @@ class ProductViewSet(viewsets.ModelViewSet):
         :return serializer 참고
         """
         product = self.get_object()
+
+        if not product.is_active:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
         user = request.user
 
         # 판매자인 경우 count 하지 않음.
@@ -514,7 +524,16 @@ class ProductViewSet(viewsets.ModelViewSet):
         return paginator.get_paginated_response(products_serializer.data)
 
     def destroy(self, request, *args, **kwargs):
+        user = request.user
+
+        if user.is_anonymous:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
         product = self.get_object()
+
+        if product.seller != user:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
         product.is_active = False
         product.save()
 
@@ -653,10 +672,10 @@ class ProductCategoryViewSet(viewsets.GenericViewSet):
         *id 는 first category
         :return serialzier 참고
         """
-        fc_pk = kwargs['pk']
+        sc_pk = kwargs['pk']
         try:
-            first_category = FirstCategory.objects.get(pk=fc_pk)
-        except FirstCategory.DoesNotExist:
+            first_category = SecondCategory.objects.get(pk=sc_pk).first_category
+        except SecondCategory.DoesNotExist:
             raise Http404
         queryset = self.get_queryset().filter(category=first_category)
         serializer = self.get_serializer(queryset, many=True)
