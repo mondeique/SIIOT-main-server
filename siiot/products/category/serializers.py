@@ -32,7 +32,7 @@ class SizeSerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
 
     def get_name(self, obj):
-        return obj.size_name
+        return obj.name
 
 
 class ColorSerializer(serializers.ModelSerializer):

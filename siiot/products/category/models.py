@@ -61,6 +61,12 @@ class Size(models.Model):
             return "[{}] {} (cm)".format(self.category.name, self.size)
         return "[{}] {}".format(self.category.name, self.size)
 
+    @property
+    def name(self):
+        if self.category.name in ['스커트', '팬츠'] and self.size_max:
+            return self.size_name + '({}~{})'.format(self.size, self.size_max)
+        return self.size_name
+
 
 def img_directory_path_profile(instance, filename):
     return 'color/{}/{}'.format(instance.color, filename)

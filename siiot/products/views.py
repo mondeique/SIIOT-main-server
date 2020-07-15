@@ -580,11 +580,17 @@ class ShoppingMallViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
         api: GET api/v1/shopping_mall/searching/?search_query=[]
         """
         keyword = request.query_params.get('search_query', None)
+        print(keyword)
         if keyword:
+            print('asd')
+            other_add_shop_obj = self.get_queryset().filter(name__icontains='선택')
+            other_add_shop_obj_ids = other_add_shop_obj.values_list('pk', flat=True)
             value = self.get_queryset()\
                     .filter(name__icontains=keyword) \
-                    .order_by('id')[:20]
-            serializer = self.get_serializer(value, many=True)
+                    .exclude(id__in=other_add_shop_obj_ids) \
+                    .order_by('id')[:30]
+            queryset = list(other_add_shop_obj) + list(value)
+            serializer = self.get_serializer(queryset, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
             queryset = self.get_queryset().order_by('order')
@@ -661,7 +667,6 @@ class ProductCategoryViewSet(viewsets.GenericViewSet):
             raise Http404
         queryset = self.get_queryset().filter(first_category=first_category)
         serializer = self.get_serializer(queryset, many=True)
-        print(serializer.data)
         return Response(serializer.data)
 
     @action(methods=['get'], detail=True)
