@@ -1,0 +1,55 @@
+# docker-compose.yml
+
+version: '3'
+#networks:
+#  monde-siiot-net:  # Container들의 Private Network을 설정한다.
+#    driver: bridge
+#volumes:  # Container 들에서 사용되는 Volume을 정의한다.
+#    monde-siiot-cache-volume: {}
+#    monde-siiot-task-volume: {}
+services:
+#    monde-siiot-cache:
+#        image: redis:5.0.3-alpine
+#        command: redis-server
+#        ports:
+#            - "6379:6379"
+#        volumes:
+#            - monde-siiot-cache-volume:/data
+#        healthcheck:
+#            test: "redis-cli -h 127.0.0.1 ping"
+#            interval: 3s
+#            timeout: 1s
+#            retries: 5
+#        networks:
+#          - monde-siiot-net
+    monde-siiot:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        ports:
+            - "0.0.0.0:8000:8000"
+#        depends_on:
+#            - monde-siiot-cache
+#        links:
+#            - monde-siiot-cache:monde-siiot-cache
+        command: python manage.py runserver 0.0.0.0:8000
+        volumes:
+            - .:/monde-siiot/monde-siiot
+#            - web-crawler-task-volume:/web-crawler/web-crawler-task:Z
+#        networks:
+#          - web-crawler-net
+#    web-crawler-task:
+#        image: monde-bengal_web-crawler:0.0.2
+#        build:
+#            context: .
+#            dockerfile: ./Dockerfile
+#        depends_on:
+#            - web-crawler-cache
+#        links:
+#            - web-crawler-cache:web-crawler-cache
+#        command: celery -A web_crawler worker -l info
+#        volumes:
+#            - .:/web-crawler/web-crawler
+#            - web-crawler-task-volume:/web-crawler/web-crawler-task:Z
+#        networks:
+#          - web-crawler-net
