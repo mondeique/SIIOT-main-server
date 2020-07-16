@@ -164,7 +164,7 @@ class UserInfoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'seller_registered', 'token']
+        fields = ['id', 'seller_registered', 'token', 'nickname']
 
     def get_seller_registered(self, user):
         if hasattr(user, 'accounts'):

@@ -56,6 +56,7 @@ def simple_send(certification_number, phone):
     body = json.dumps(body)
 
     response = requests.post(api_url, headers=headers, data=body)
+    print(response.status_code)
     if response.status_code == 202:
         return True
     else:

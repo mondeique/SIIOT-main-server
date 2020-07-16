@@ -15,9 +15,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 # Create your views here.
 from accounts.models import User, PhoneConfirm, Profile
 from accounts.serializers import LoginSerializer, SignupSerializer, CredentialException, NicknameSerializer, \
-    ResetPasswordSerializer, UserInfoSerializer
+    ResetPasswordSerializer, UserInfoSerializer, ProfileSerializer
 from accounts.sms.signature import simple_send
-from accounts.sms.utils import SMSManager
+from accounts.sms.utils import SMSV2Manager, SMSManager
 from accounts.utils import create_token, set_random_nickname
 from mypage.models import DeliveryPolicy
 
@@ -36,6 +36,8 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
             serializer = LoginSerializer
         elif self.action == 'check_userinfo':
             serializer = UserInfoSerializer
+        elif self.action == 'profile':
+            return ProfileSerializer
         else:
             serializer = super(AccountViewSet, self).get_serializer_class()
         return serializer
@@ -187,7 +189,6 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         user = serializer.save()
 
         serializer = UserInfoSerializer(user)
-        print(serializer.data)
         return Response(serializer.data, status=status.HTTP_206_PARTIAL_CONTENT)
 
     @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated, ])
@@ -220,15 +221,18 @@ class NicknameViewSet(viewsets.GenericViewSet, mixins.UpdateModelMixin):
         """
         user = request.user
 
-        serializer = self.get_serializer(user, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        nickname = serializer.data['nickname']
+
+        nickname = request.data.get('nickname')
+        if nickname is None or len(nickname) < 2:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
 
         # check duplicate nickname
         if User.objects.filter(nickname=nickname).exists():
             return Response(status=status.HTTP_409_CONFLICT)
 
         # nickname save
+        serializer = self.get_serializer(user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
         serializer.save()
 
         return Response(status=status.HTTP_206_PARTIAL_CONTENT)
@@ -272,12 +276,13 @@ class SMSViewSet(viewsets.GenericViewSet):
         elif User.objects.filter(phone=phone, is_active=True).exists():
             return Response("Phone number already exists", status=status.HTTP_409_CONFLICT) # already exists
 
-        sms_manager = SMSManager()
+        # sms_manager = SMSManager()
+        sms_manager = SMSV2Manager()
         sms_manager.set_content()
         sms_manager.create_instance(phone=phone, kind=PhoneConfirm.SIGN_UP)
         print(sms_manager.temp_key)
         if not sms_manager.send_sms(phone=phone):
-            return Response("Failed send sms", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response("Failed send sms", status=status.HTTP_408_REQUEST_TIMEOUT)
 
         return Response({'temp_key': sms_manager.temp_key}, status=status.HTTP_200_OK)
 
@@ -306,7 +311,8 @@ class SMSViewSet(viewsets.GenericViewSet):
         elif not User.objects.filter(phone=phone, is_active=True).exists():
             return Response("User does not exists", status=status.HTTP_204_NO_CONTENT)  # no user
 
-        sms_manager = SMSManager()
+        # sms_manager = SMSManager()
+        sms_manager = SMSV2Manager()
         sms_manager.set_content()
         sms_manager.create_instance(phone=phone, kind=PhoneConfirm.RESET_PASSWORD)
 
@@ -342,7 +348,7 @@ class SMSViewSet(viewsets.GenericViewSet):
         phone = obj.phone
 
         if not simple_send(certification_number, phone):
-            return Response("Failed send sms", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response("Failed send sms", status=status.HTTP_408_REQUEST_TIMEOUT)
 
         return Response(status=status.HTTP_200_OK)
 
