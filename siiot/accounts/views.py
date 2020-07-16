@@ -282,7 +282,7 @@ class SMSViewSet(viewsets.GenericViewSet):
         sms_manager.create_instance(phone=phone, kind=PhoneConfirm.SIGN_UP)
         print(sms_manager.temp_key)
         if not sms_manager.send_sms(phone=phone):
-            return Response("Failed send sms", status=status.HTTP_408_REQUEST_TIMEOUT)
+            return Response("Failed send sms", status=status.HTTP_410_GONE)
 
         return Response({'temp_key': sms_manager.temp_key}, status=status.HTTP_200_OK)
 
@@ -315,9 +315,8 @@ class SMSViewSet(viewsets.GenericViewSet):
         sms_manager = SMSV2Manager()
         sms_manager.set_content()
         sms_manager.create_instance(phone=phone, kind=PhoneConfirm.RESET_PASSWORD)
-
         if not sms_manager.send_sms(phone=phone):
-            return Response("Failed send sms", status=status.HTTP_408_REQUEST_TIMEOUT)
+            return Response("Failed send sms", status=status.HTTP_410_GONE)
 
         return Response({'temp_key': sms_manager.temp_key}, status=status.HTTP_200_OK)
 
@@ -348,7 +347,7 @@ class SMSViewSet(viewsets.GenericViewSet):
         phone = obj.phone
 
         if not simple_send(certification_number, phone):
-            return Response("Failed send sms", status=status.HTTP_408_REQUEST_TIMEOUT)
+            return Response("Failed send sms", status=status.HTTP_410_GONE)
 
         return Response(status=status.HTTP_200_OK)
 

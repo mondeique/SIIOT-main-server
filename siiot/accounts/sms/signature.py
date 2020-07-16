@@ -14,11 +14,7 @@ def time_stamp():
     return str(int(time.time() * 1000))
 
 
-def make_signature():
-    uri = "/sms/v2/services/" + load_credential("serviceId") + "/messages"
-    timestamp = time_stamp()
-    access_key = load_credential("access_key")
-    string_to_sign = "POST " + uri + "\n" + timestamp + "\n" + access_key
+def make_signature(string_to_sign):
     secret_key = bytes(load_credential('secret_key'), 'UTF-8')
     string = bytes(string_to_sign, 'UTF-8')
     string_hmac = hmac.new(secret_key, string, digestmod=hashlib.sha256).digest()
@@ -30,18 +26,20 @@ def simple_send(certification_number, phone):
     """
     simple sms send code
     """
+    access_key = load_credential("access_key")
     url = "https://sens.apigw.ntruss.com"
     uri = "/sms/v2/services/" + load_credential("serviceId") + "/messages"
     api_url = url + uri
-
-    signature = make_signature()
+    timestamp = str(int(time.time() * 1000))
+    string_to_sign = "POST " + uri + "\n" + timestamp + "\n" + access_key
+    signature = make_signature(string_to_sign)
 
     message = "사용자의 인증 코드는 [SiiOt] {}입니다.".format(certification_number)
 
     headers = {
         'Content-Type': "application/json; charset=UTF-8",
-        'x-ncp-apigw-timestamp': time_stamp(),
-        'x-ncp-iam-access-key': load_credential('access_key'),
+        'x-ncp-apigw-timestamp': timestamp,
+        'x-ncp-iam-access-key': access_key,
         'x-ncp-apigw-signature-v2': signature
     }
 
