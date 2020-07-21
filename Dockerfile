@@ -5,6 +5,9 @@ MAINTAINER eren@mondeique.com
 
 ENV PYTHONUNBUFFERED 0
 
+# django settings module
+#ENV DJANGO_SETTINGS_MODULE siiot.settings.prod
+
 # 우분투 환경 업데이트 및 기본 패키지 설치
 RUN apt-get -y update
 RUN apt-get upgrade -y
@@ -77,9 +80,13 @@ RUN chown -R www-data:www-data /mondeique_siiot
 # setup nginx config
 RUN echo "daemon off;" >> /etc/nginx/nginx.conf
 RUN rm /etc/nginx/sites-enabled/default
+RUN rm /etc/nginx/sites-available/default
 RUN chown -R www-data:www-data /var/lib/nginx
 RUN ln -s /mondeique_siiot/nginx-app.conf /etc/nginx/sites-enabled/
+RUN ln -s /mondeique_siiot/nginx-app.conf /etc/nginx/sites-available/
 RUN ln -s /mondeique_siiot/supervisor-app.conf /etc/supervisor/conf.d/
+
+
 
 EXPOSE 80 22
 CMD ["supervisord", "-n"]
