@@ -1,5 +1,6 @@
 import requests
 from django.db import transaction
+from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.views.generic import TemplateView, DetailView
 import time
@@ -10,6 +11,7 @@ from custom_manage.forms import UploadRequestForm, InitialProductUploadForm, Pro
 from custom_manage.utils import upload_s3
 from products.models import ProductUploadRequest, Product, ProductImages, ProductStatus, ProdThumbnail
 from products.slack import slack_message
+from products.supplymentary.models import PurchasedTime
 from products.utils import crawl_request, image_key_list
 
 
@@ -149,6 +151,10 @@ class ProductImagesUploadTemplateView(DetailView):
     def post(self, request, *args, **kwargs):
         product = self.get_object()
 
+        if product.temp_save and product.images.last():
+            product.images.all().delete()
+            product.prodthumbnail.delete()
+
         files = request.FILES.getlist('image')
         print(files)
         count = len(files)
@@ -205,8 +211,20 @@ class ProductInfoUploadTemplateView(DetailView):
 
     @transaction.atomic
     def post(self, request, *args, **kwargs):
-        form = ProductInfoUploadForm(instance=self.get_object(), data=request.POST)
-        pk = kwargs['pk']
+        product = self.get_object()
+
+        form = ProductInfoUploadForm(instance=product, data=request.POST)
+
+        data = request.POST
+        data._mutable = True
+        year = data.get('purchased_year', None)
+        month = data.get('purchased_month', None)
+
+        if year and month:
+            time, _ = PurchasedTime.objects.get_or_create(year=int(year), month=int(month))
+            product.purchased_time = time
+            product.save()
+
         if form.is_valid():
             product = form.save(commit=False)
             product.temp_save = False
