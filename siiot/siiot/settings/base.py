@@ -130,7 +130,9 @@ THIRD_APPS = [
     'ajax_select',
 
     # selenium
-    'selenium'
+    'selenium',
+
+    'crispy_forms'
 ]
 
 INSTALLED_APPS += SECONDS_APPS + THIRD_APPS
@@ -245,6 +247,9 @@ STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
     # 'djangobower.finders.BowerFinder',
 ]
+
+########## form crispy
+CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
 
 ########## CKEDITOR CONFIGURATION

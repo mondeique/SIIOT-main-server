@@ -3,23 +3,24 @@
 {% block script %}
     <script src="https://cdnjs.cloudflare.com/ajax/libs/async/2.0.1/async.js"></script>
 {% endblock %}
+{% load crispy_forms_tags %}
 
 {% block body %}
     {%  if user.is_authenticated  %}
         <div style=" float: left;">
-        <div class="row">
-            <h1 style="font-family: 'Noto Sans CJK KR Regular'; font-size: 21px">
-                {{ user.nickname }}님 안녕하세요</h1>
-            <h3 style="font-family: 'Noto Sans CJK KR Thin'; font-size: 18px; background-color: antiquewhite">
-                스태프 임시 상품 업로드 페이지입니다.
-            </h3>
-            <br><br>
-            <h1><a class="btn btn-info" href="{% url 'product_initial_upload' %}" style="font-size: 19px">업로드</a></h1>
 
+            <div class="data" style="display: inline-block"><br>
+                <form action="" method="POST" autocomplete="off" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    {{ formset }} <br/>
+                    <input type="submit" name="submit" value="Submit">
+                </form>
+                <br>
+                <br>
 
-
+            </div>
         </div>
-        <br><br>
+
 
     {% else %}
         <p>You are not logged in</p>
@@ -30,8 +31,10 @@
 
 {% block css %}
     <style>
-        .row {
-            margin: 5px 2px 10px 50px;
+
+        .data {
+            margin: 100px 20px 50px 130px;
+            padding: 1px 1px 1px 1px;
         }
 
         .col-md-1 p {

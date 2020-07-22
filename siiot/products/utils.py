@@ -1,4 +1,5 @@
 import datetime
+import uuid
 
 import cfscrape
 import requests
@@ -46,3 +47,24 @@ def check_product_url(product_url):
         return True
 
     return False
+
+
+def image_key_list(count):
+    """
+    이미지 첨부시 uuid list를 발급받는 함수입니다.
+    api 가 아닌경우 utils 에서 참조하여 사용합니다.
+    """
+    temp_key_list = []
+    for i in range(count):
+        temp_key = fun_temp_key()
+        temp_key_list.append(temp_key)
+    return temp_key_list
+
+def fun_temp_key():
+    ext = 'jpg'
+    key = uuid.uuid4()
+    image_key = "%s.%s" % (key, ext)
+    url = "https://{}.s3.amazonaws.com/".format('siiot-media-storage') # TODO: production s3
+    content_type = "image/jpeg"
+    data = {"url": url, "image_key": image_key, "content_type": content_type, "key": key}
+    return data

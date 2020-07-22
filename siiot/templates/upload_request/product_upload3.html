@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}source{% endblock %}
+{% block script %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/async/2.0.1/async.js"></script>
+{% endblock %}
+{% load crispy_forms_tags %}
+
+{% block body %}
+    {%  if user.is_authenticated  %}
+        <div style=" float: left;">
+            <div class="receipt" style="float: left; margin-left: 100px">
+                {% if product.crawl_product_id %}
+                    <h1 style="font-family: 'Noto Sans CJK KR Regular'; font-size: 21px">
+                        크롤링 성공</h1>
+                    <h3 style="font-family: 'Noto Sans CJK KR Thin'; font-size: 18px; background-color: antiquewhite">
+                        가격 {{ crawl_price }}. <br/>
+                        상품명 {{ crawl_name }}
+                    </h3>
+                {% else %}
+                    <h1 style="font-family: 'Noto Sans CJK KR Regular'; font-size: 21px">
+                        크롤링 실패</h1>
+                    참고 url {{ product.product_url }}
+                {% endif %}
+            </div>
+
+            <div class="data" style="display: inline-block"><br>
+                <form action="" method="POST" autocomplete="off" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    {{ form| crispy }} <br/>
+                    <input type="submit" name="submit" value="Submit">
+                </form>
+                <br>
+                <br>
+
+            </div>
+        </div>
+
+
+    {% else %}
+        <p>You are not logged in</p>
+        <a href="{% url 'login' %}">login</a>
+    {% endif %}
+{% endblock %}
+
+
+{% block css %}
+    <style>
+
+        .data {
+            margin: 100px 20px 50px 130px;
+            padding: 1px 1px 1px 1px;
+        }
+
+        .col-md-1 p {
+            color: red;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+    </style>
+{% endblock %}
