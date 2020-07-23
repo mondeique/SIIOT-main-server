@@ -55,11 +55,9 @@ class Size(models.Model):
     direct_input = models.CharField(max_length=100, null=True, blank=True, verbose_name='직접입력')
 
     def __str__(self):
-        if self.size_max:
-            return "[{}] {}-{}".format(self.category.name, self.size, self.size_max)
-        if self.category.name == 'SHOES':
-            return "[{}] {} (cm)".format(self.category.name, self.size)
-        return "[{}] {}".format(self.category.name, self.size)
+        if self.category.name in ['스커트', '팬츠'] and self.size_max:
+            return self.category.name + self.size_name + '({}~{})'.format(self.size, self.size_max)
+        return self.category.name + self.size_name
 
     @property
     def name(self):
