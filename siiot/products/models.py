@@ -40,7 +40,7 @@ class Product(models.Model):
     shopping_mall = models.ForeignKey(ShoppingMall, on_delete=models.CASCADE, related_name="products")
 
     # shop product url
-    product_url = models.URLField(null=True, blank=True, help_text="추후 링크 없는 상품을 위해 null 가능 처리")
+    product_url = models.CharField(max_length=500, null=True, blank=True, help_text="추후 링크 없는 상품을 위해 null 가능 처리")
 
     # check url valid -> detail page 접속시 check 하여 save, 상세페이지 return 을 결정합니다.
     valid_url = models.BooleanField(default=True,
