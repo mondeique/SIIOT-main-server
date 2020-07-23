@@ -207,13 +207,7 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_thumbnail_image_url(obj):
         if not obj.crawl_product_id:
-            if hasattr(obj, 'prodthumbnail'):
-                return obj.prodthumbnail.image_url
-            # for develop
-            try:
-                return obj.images.first().image_url
-            except:
-                return test_thumbnail_image_url
+            return obj.images.first().image_url
         return CrawlProduct.objects.get(id=obj.crawl_product_id).thumbnail_image_url
 
     @staticmethod
