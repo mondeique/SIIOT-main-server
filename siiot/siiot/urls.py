@@ -22,6 +22,7 @@ from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework.permissions import AllowAny
 
+from core.views import download_link
 from custom_manage.sites import staff_panel, superadmin_panel
 from payment.views import pay_test
 
@@ -29,7 +30,7 @@ urlpatterns = [
 
     # api
     path('superadmin/', superadmin_panel.urls),
-    path('staff/', staff_panel.urls),
+    path('staff/', staff_panel.urls, name='staff'),
     path('admin/', admin.site.urls),
     path('staff/', include('custom_manage.urls')),
     path('api/v1/', include('products.urls')),
@@ -41,6 +42,7 @@ urlpatterns = [
     path('accounts/v1/', include('accounts.urls')),
     # path('chat/', include('chats.urls')),
     path('pay_test/', pay_test, name='paytest'),
+    path('download/', download_link, name='download'),
 
     # ckeditor
     path('ckeditor/', include('ckeditor_uploader.urls')),
