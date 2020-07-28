@@ -106,6 +106,7 @@ class TransactionHistorySerializer(serializers.ModelSerializer):
 
     def get_status(self, obj):
         status = obj.status
+        seller_accepted = obj.seller_accepted
         if status == 1:
             return '승인 대기중'
         elif status == 2:
@@ -114,6 +115,8 @@ class TransactionHistorySerializer(serializers.ModelSerializer):
             return '배송 중'
         elif status == 5:
             return '거래완료'
+        elif status == -2 and not seller_accepted:
+            return '판매자 거절'
         elif status in [-1, -2, -3]:
             return '거래취소'
         return None
