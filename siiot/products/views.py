@@ -313,6 +313,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
         return Response(status=status.HTTP_206_PARTIAL_CONTENT)
 
+    @transaction.atomic
     @action(methods=['put'], detail=True)
     def edit(self, request, *args, **kwargs):
         data = request.data.copy()
