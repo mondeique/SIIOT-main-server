@@ -581,7 +581,9 @@ class ShoppingMallViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
         api: GET api/v1/shopping_mall/searching/?search_query=[]
         """
         keyword = request.query_params.get('search_query', None)
+        print(keyword)
         if keyword:
+            print('asd')
             other_add_shop_obj = self.get_queryset().filter(name__icontains='선택')
             other_add_shop_obj_ids = other_add_shop_obj.values_list('pk', flat=True)
             value = self.get_queryset()\
@@ -864,7 +866,7 @@ class SearchViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
 class MainViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     queryset = Product.objects\
         .filter(is_active=True, temp_save=False)\
-        .filter(status__sold=False, status__hiding=False)\
+        .filter(status__hiding=False)\
         .select_related('seller', 'color', 'size', 'category', 'purchased_time')\
         .select_related('prodthumbnail', 'views')\
         .prefetch_related('images')

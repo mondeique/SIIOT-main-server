@@ -195,15 +195,15 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         """
         data = request.data.copy()
 
-        # test for web
-        data = {"trade": [2], "price": 230,
-                "address": {"name":"이름",
-                            "phone": '01032423121',
-                            "zipNo":'12345',
-                            "Addr":'서울시 관악구',
-                            "detailAddr": '302호'},
-                "memo":'',
-                "application_id" : 1}
+        # # test for web
+        # data = {"trade": [2], "price": 230,
+        #         "address": {"name":"이름",
+        #                     "phone": '01032423121',
+        #                     "zipNo":'12345',
+        #                     "Addr":'서울시 관악구',
+        #                     "detailAddr": '302호'},
+        #         "memo":'',
+        #         "application_id" : 1}
         self.data = data
         self.request = request
         self.user = request.user
