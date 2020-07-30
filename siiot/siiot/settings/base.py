@@ -99,7 +99,7 @@ SECONDS_APPS = [
     'transaction',
     'reviews',
     'notice',
-    # 'landing',
+    'landing',
     'chat',
     # 'user_activity',
     # 'test'

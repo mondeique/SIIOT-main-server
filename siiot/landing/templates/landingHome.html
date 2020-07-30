@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+  <link rel="stylesheet" type="text/css" href="{% static 'css/headerFooter.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'css/sns.css' %}">
+{#    <link rel="shortcut icon" type="image/x-icon" href="https://pepup-server-storages.s3.ap-northeast-2.amazonaws.com/static/img/favicon-96x96.png"/>#}
+  <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <script type='text/javascript' src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+  <title>SIIOT</title>
+
+  <!--favicon-->
+  <!--bootstrap-->
+
+</head>
+<body>
+<!--section-->
+    <div id="wrap">
+{#        <header>#}
+{#            <img id = "homeBtn" src="https://pepup-storage.s3.ap-northeast-2.amazonaws.com/landing/homesmall.svg">#}
+{#            <div id="guideBtn">#}
+{#                SIIOT#}
+{#            </div>#}
+{#            <div id="sns">#}
+{#                <span class="snsimg kakao"><img src="https://pepup-storage.s3.ap-northeast-2.amazonaws.com/landing/kakaoImg.svg"/></span><span class = "snstext kakao"></span>#}
+{#                <span class="snsimg insta"><img src="https://pepup-storage.s3.ap-northeast-2.amazonaws.com/landing/instaImg.svg"/></span><span class = "snstext insta"></span>#}
+{#            </div>#}
+{#        </header>#}
+        <div id="imagesource" align="center">
+            <span class="imagesource">
+                <img src="https://siiot-server-storages.s3.ap-northeast-2.amazonaws.com/landing/%EC%9D%B8%EC%8A%A4%ED%83%80%EC%8A%A4%ED%86%A0%EB%A6%AC_%EA%B4%91%EA%B3%A0_%EC%86%8C%EC%8A%A4%EC%9D%B4%EB%AF%B8%EC%A7%80.jpg"
+                style="width:100%;height:100%;"/>
+            </span>
+        </div>
+        <div id="download" align="center">
+            <span class="download_link">
+                <img src="https://siiot-server-storages.s3.ap-northeast-2.amazonaws.com/landing/%EC%9D%B8%EC%8A%A4%ED%83%80%EC%8A%A4%ED%86%A0%EB%A6%AC_%EA%B4%91%EA%B3%A0_%EB%B2%84%ED%8A%BC.jpg"
+                     style="width:100%;height:100%;"/>
+            </span>
+        </div>
+    </div>
+    <!--footer-->
+{#  <footer>#}
+{#        <div class="container">#}
+{#          <div class="footer-first">#}
+{#            <span>주식회사 몽데이크</span>#}
+{#            <br/>#}
+{#            <span>Copyright 2020 Mondeique. All rights reserved.</span>#}
+{#          </div>#}
+{#          <div class="footer-section">#}
+{#            <span style="font-family: noto-bold;">주소</span> 서울시 마포구 연남동 567-39번지 202호<br/>#}
+{#            <span style="font-family: noto-bold;">대표이사</span> 박준용, 이상우<br/>#}
+{#            <span style="font-family: noto-bold;">사업자등록번호</span> 789-81-01945<br/>#}
+{#            <span style="font-family: noto-bold;">이메일</span> support@mondeique.com#}
+{#          </div>#}
+{#        </div>#}
+{#  </footer>#}
+</body>
+<script>
+  // $(document).ready(function(){
+  //   var width = (window.innerWidth > 0) ? window.innerWidth : screen.width;
+  //   if(width < 760){
+  //     $(".none-mobile").css("display", "none")
+  //     $(".mobile").css("display","inline")
+  //   }else{
+  //     $(".none-mobile").css("display", "inline")
+  //     $(".mobile").css("display","none")
+  //   }
+  // })
+  $("#guideBtn").hover(function(){
+    $("#guideBtn").css("background", "black").css("color","white");
+  }, function(){
+    $("#guideBtn").css("background", "white").css("color","black");
+  })
+  $("#homeBtn").click(function(){
+    window.location.href = "http://sii-ot.com/"
+  })
+    //sns link
+    $(".kakao").click(function () {
+        window.location.href = "http://pf.kakao.com/_xbjYMxb/chat"
+    })
+    $(".insta").click(function () {
+        window.location.href = "http://instagram.com/siiot.official"
+    })
+    // download link
+  $(".download_link").click(function () {
+        window.location.href = "https://play.google.com/store/apps/details?id=com.mondeique.siiot"
+    })
+</script>
+</html>

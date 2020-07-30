@@ -43,6 +43,7 @@ urlpatterns = [
     # path('chat/', include('chats.urls')),
     path('pay_test/', pay_test, name='paytest'),
     path('download/', download_link, name='download'),
+    path('', include(('landing.urls'))),
 
     # ckeditor
     path('ckeditor/', include('ckeditor_uploader.urls')),
