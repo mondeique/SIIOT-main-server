@@ -52,7 +52,7 @@ superadmin_register(PhoneConfirm, list_display=['phone', 'certification_number',
 # staff
 
 class UserStaffadmin(admin.ModelAdmin):
-    list_display = ['id', 'phone', 'email', 'nickname', 'is_active']
+    list_display = ['id', 'phone', 'email', 'nickname', 'is_active', 'created_at']
     search_fields = ['email', 'phone']
 
 
