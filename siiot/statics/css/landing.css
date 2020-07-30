@@ -1,0 +1,30 @@
+
+#downloadBtn{
+    align:"center"
+  }
+  #imagesource{
+    align:"center"
+  }
+
+@media screen and (max-width: 768px) {
+  #downloadBtn{
+    width: 100%;
+    position: fixed;
+    float: bottom;
+    margin-bottom: 20px;
+  }
+  #downloadBox{
+  }
+  #imagesource{
+    width : 100%
+  }
+}
+@media screen and (min-width: 768px) {
+  #downloadBtn{
+    width: 300px;
+  }
+  #imagesource{
+    width : 1000px
+  }
+}
+
