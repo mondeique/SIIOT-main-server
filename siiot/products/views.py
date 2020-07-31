@@ -502,28 +502,6 @@ class ProductViewSet(viewsets.ModelViewSet):
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(methods=['get'], detail=False)
-    def filter(self, request, *args, **kwargs):
-        """
-        메인 페이지 필터 입니다.
-        api: GET /api/v1/product/filter/?search_category=1&search_color=3
-        main, likes, filter 의 return 포맷이 동일합니다.
-        """
-        queryset = self.get_queryset().filter(temp_save=False, is_active=True)
-        category = request.query_params.get('search_category', None)
-        color = request.query_params.get('search_color', None)
-        if category:
-            category_id = int(category)
-            queryset = queryset.filter(category__first_category_id=category_id)
-        if color:
-            color_id = int(color)
-            queryset = queryset.filter(color_id=color_id)
-        queryset = queryset.order_by('-created_at')
-        paginator = SiiotPagination()
-        page = paginator.paginate_queryset(queryset=queryset, request=request)
-        products_serializer = self.get_serializer(page, many=True)
-        return paginator.get_paginated_response(products_serializer.data)
-
     def destroy(self, request, *args, **kwargs):
         user = request.user
 
@@ -910,3 +888,25 @@ class MainViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
         qs = MainBanner.objects.filter(is_active=True).order_by('order')
         serializer = BannerSerializer(qs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(methods=['get'], detail=False)
+    def filter(self, request, *args, **kwargs):
+        """
+        메인 페이지 필터 입니다.
+        api: GET /api/v1/main/filter/?search_category=1&search_color=3
+        main, likes, filter 의 return 포맷이 동일합니다.
+        """
+        queryset = self.get_queryset().filter(temp_save=False, is_active=True)
+        category = request.query_params.get('search_category', None)
+        color = request.query_params.get('search_color', None)
+        if category:
+            category_id = int(category)
+            queryset = queryset.filter(category__first_category_id=category_id)
+        if color:
+            color_id = int(color)
+            queryset = queryset.filter(color_id=color_id)
+        queryset = queryset.order_by('-created_at')
+        paginator = SiiotPagination()
+        page = paginator.paginate_queryset(queryset=queryset, request=request)
+        products_serializer = self.get_serializer(page, many=True)
+        return paginator.get_paginated_response(products_serializer.data)
