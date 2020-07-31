@@ -94,6 +94,12 @@
     // download link
   $("#imagesource").click(function () {
         window.location.href = "https://play.google.com/store/apps/details?id=com.mondeique.siiot"
-    })
+      $.ajax({
+          url: "http://sii-ot.com/alert_slack/", // 클라이언트가 요청을 보낼 서버의 URL 주소
+          type: "GET"                         // 서버에서 보내줄 데이터의 타입
+        }).done(function(){
+            console.log("log success")
+        })
+  })
 </script>
 </html>

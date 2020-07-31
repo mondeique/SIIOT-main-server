@@ -5,5 +5,6 @@ from . import views
 app_name = 'landing'
 
 urlpatterns = [
-    path('', views.home, name='home')
+    path('', views.home, name='home'),
+    path('alert_slack/', views.alert_slack)
 ]
