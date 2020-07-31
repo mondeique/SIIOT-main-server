@@ -906,7 +906,18 @@ class MainViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
             color_id = int(color)
             queryset = queryset.filter(color_id=color_id)
         queryset = queryset.order_by('-created_at')
+
+        new_crawled_qs = queryset.filter(crawl_product_id__isnull=False).order_by('-created_at')[:10]
+
+        # evaluate queryset to queryset slice
+        new_crawled_qs_ids = list(new_crawled_qs.values_list('pk', flat=True))
+
+        other_qs = queryset.exclude(id__in=new_crawled_qs_ids).order_by('-created_at')
+
+        # to queryset chaining with each ordering
+        custom_qs = list(new_crawled_qs) + list(other_qs)
+
         paginator = SiiotPagination()
-        page = paginator.paginate_queryset(queryset=queryset, request=request)
+        page = paginator.paginate_queryset(queryset=custom_qs, request=request)
         products_serializer = self.get_serializer(page, many=True)
         return paginator.get_paginated_response(products_serializer.data)
