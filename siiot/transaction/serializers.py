@@ -85,7 +85,6 @@ class SimpleTransactionTransportSerializer(serializers.ModelSerializer):
 
 class TransactionDetailSerializer(serializers.ModelSerializer):  # 공용
     products = serializers.SerializerMethodField()
-    seller = serializers.SerializerMethodField()
     payment_info = serializers.SerializerMethodField()
     payment_time = serializers.SerializerMethodField()
     address = serializers.SerializerMethodField()
@@ -95,7 +94,6 @@ class TransactionDetailSerializer(serializers.ModelSerializer):  # 공용
         model = Transaction
         fields = ['id',
                   'products',
-                  'seller',
                   'payment_info',
                   'payment_time',
                   'address',
@@ -107,11 +105,6 @@ class TransactionDetailSerializer(serializers.ModelSerializer):  # 공용
         self.deal = transaction_obj.deal
         product = Product.objects.filter(trades__deal__transaction=transaction_obj)
         serializer = SimpleTransactionProductInfoSerializer(product, many=True)
-        return serializer.data
-
-    def get_seller(self):
-        seller = self.deal.seller
-        serializer = SimpleUserInfoSerializer(seller)
         return serializer.data
 
     def get_info(self):
@@ -138,9 +131,10 @@ class TransactionDetailSerializer(serializers.ModelSerializer):  # 공용
 
 class SellerTransactionDetailSerializer(TransactionDetailSerializer):
     cancel_btn_active = serializers.SerializerMethodField()
+    other_party = serializers.SerializerMethodField()
 
     class Meta(TransactionDetailSerializer.Meta):
-        fields = TransactionDetailSerializer.Meta.fields + ['cancel_btn_active']
+        fields = TransactionDetailSerializer.Meta.fields + ['cancel_btn_active', 'other_party']
 
     def get_cancel_btn_active(self, transaction_obj):
         # 판매자 거래취소 버튼 활성화 : 판매승인, 운송장 번호 입력 후 까지는 거래취소 가능
@@ -149,12 +143,18 @@ class SellerTransactionDetailSerializer(TransactionDetailSerializer):
             return True
         return False
 
+    def get_other_party(self):
+        buyer = self.deal.buyer
+        serializer = SimpleUserInfoSerializer(buyer)
+        return serializer.data
+
 
 class BuyerTransactionDetailSerializer(TransactionDetailSerializer):
     cancel_btn_active = serializers.SerializerMethodField()
+    other_party = serializers.SerializerMethodField()
 
     class Meta(TransactionDetailSerializer.Meta):
-        fields = TransactionDetailSerializer.Meta.fields + ['cancel_btn_active']
+        fields = TransactionDetailSerializer.Meta.fields + ['cancel_btn_active', 'other_party']
 
     def get_cancel_btn_active(self, transaction_obj):
         # 구매자 거래취소 버튼 활성화 : 결제취소시, 구매확정시 제외하고는 거래취소 버튼 존재.
@@ -163,3 +163,8 @@ class BuyerTransactionDetailSerializer(TransactionDetailSerializer):
         if status in [-1, -2, -3, 5]:
             return False
         return True
+
+    def get_other_party(self):
+        seller = self.deal.seller
+        serializer = SimpleUserInfoSerializer(seller)
+        return serializer.data
