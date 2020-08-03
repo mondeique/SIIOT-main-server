@@ -2,6 +2,13 @@
 {% load static %}
 <html lang="en">
 <head>
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-5NHRV96');</script>
+    <!-- End Google Tag Manager -->
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-172867123-1"></script>
     <script>
@@ -10,6 +17,15 @@
       gtag('js', new Date());
       gtag('config', 'UA-172867123-1');
     </script>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-172867123-2"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'UA-172867123-2');
+    </script>
+
   <link rel="stylesheet" type="text/css" href="{% static 'css/landing.css' %}">
 {#    <link rel="stylesheet" type="text/css" href="/../../statics/css/landing.css">#}
 {#    <link rel="stylesheet" type="text/css" href="{% static 'css/sns.css' %}">#}
@@ -24,6 +40,10 @@
 
 </head>
 <body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-5NHRV96"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
 <!--section-->
     <div id="wrap">
 {#        <header>#}
@@ -37,7 +57,7 @@
 {#            </div>#}
 {#        </header>#}
         <div class="wrapper" align="center">
-                <img src="https://siiot-server-storages.s3.ap-northeast-2.amazonaws.com/landing/%EB%9E%9C%EB%94%A9%ED%8E%98%EC%9D%B4%EC%A7%80.jpg"
+                <img src="https://siiot-server-storages.s3.ap-northeast-2.amazonaws.com/landing/%EB%9E%9C%EB%94%A9%ED%8E%98%EC%9D%B4%EC%A7%80IOS.jpg"
                 id="imagesource"/>
         </div>
 {#        <div id="downloadBox" align="center">#}
@@ -93,7 +113,8 @@
     {#})#}
     // download link
   $("#imagesource").click(function () {
-        window.location.href = "https://play.google.com/store/apps/details?id=com.mondeique.siiot"
+        {#window.location.href = "https://play.google.com/store/apps/details?id=com.mondeique.siiot"#}
+      window.alert("출시 준비중입니다.")
       $.ajax({
           url: "http://sii-ot.com/alert_slack/", // 클라이언트가 요청을 보낼 서버의 URL 주소
           type: "GET"                         // 서버에서 보내줄 데이터의 타입
