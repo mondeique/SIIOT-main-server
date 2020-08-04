@@ -28,8 +28,8 @@ class TransactionViewSet(viewsets.GenericViewSet):
     추후 한번에 결제 구현을 위해 Deal 별로 거래 취소 단위를 묶는게 아닌, Trade 단위로 동작합니다.
     """
 
-    def __init__(self):
-        super(TransactionViewSet, self).__init__()
+    def __init__(self, *args, **kwargs):
+        super(TransactionViewSet, self).__init__(*args, **kwargs)
         self.trade = None
         self.payment = None
         self.receipt_id = None
@@ -69,7 +69,6 @@ class TransactionViewSet(viewsets.GenericViewSet):
         user = request.user
         transaction_obj = self.get_object()
         deal = transaction_obj.deal
-
 
         if transaction_obj.status in [-1, -2, -3]:  # 이미 거래취소 완료
             return Response({'error_message': '거래가 취소된 상품입니다.'}, status=status.HTTP_403_FORBIDDEN)

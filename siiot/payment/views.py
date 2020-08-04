@@ -33,7 +33,7 @@ from .utils import groupbyseller
 
 
 def pay_test(request):
-    return render(request, 'payment/pay_test.html')
+    return render(request, 'pay_test.html')
 
 
 # Cart
@@ -195,15 +195,15 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         """
         data = request.data.copy()
 
-        # # test for web
-        # data = {"trade": [2], "price": 230,
-        #         "address": {"name":"이름",
-        #                     "phone": '01032423121',
-        #                     "zipNo":'12345',
-        #                     "Addr":'서울시 관악구',
-        #                     "detailAddr": '302호'},
-        #         "memo":'',
-        #         "application_id" : 1}
+        # test for web
+        data = {"trade": [3], "price": 100,
+                "address": {"name":"이름",
+                            "phone": '01032423121',
+                            "zipNo":'12345',
+                            "Addr":'서울시 관악구',
+                            "detailAddr": '302호'},
+                "memo":'',
+                "application_id" : 1}
         self.data = data
         self.request = request
         self.user = request.user
@@ -295,10 +295,8 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         * https://docs.bootpay.co.kr/deep/submit 해당 링크를 보고 서버사이드 결제승인으로 바꿀 필요성 있음
         * https://github.com/bootpay/server_python/blob/master/lib/BootpayApi.py 맨 밑줄
         """
-
         receipt_id = request.data.get('receipt_id', None)
         order_id = request.data.get('order_id', None)
-
         if not (receipt_id or order_id):
             PaymentErrorLog.objects.create(user=request.user, temp_payment=request.user.payment_set.last(),
                                            description='잘못된 요청입니다. 결제는 되었으니 부트페이 확인 필요',
@@ -317,7 +315,6 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         # 결제 승인 중 (부트페이에선 결제 되었지만, done api 에서 처리 전)
         payment.status = 3
         payment.save()
-
         buyer = payment.user
 
         bootpay = self.get_access_token()

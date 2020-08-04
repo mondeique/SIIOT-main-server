@@ -107,21 +107,21 @@ class TransactionDetailSerializer(serializers.ModelSerializer):  # 공용
         serializer = SimpleTransactionProductInfoSerializer(product, many=True)
         return serializer.data
 
-    def get_info(self):
-        payment = self.deal.payment
-        serializer = SimpleTransactionPaymentInfoSerializer(payment)
+    def get_payment_info(self, obj):
+        deal = self.deal
+        serializer = SimpleTransactionPaymentInfoSerializer(deal)
         return serializer.data
 
     def get_payment_time(self, transaction_obj):
         serializer = SimpleTransactionPaymentTimeSerializer(transaction_obj)
         return serializer.data
 
-    def get_address(self):
+    def get_address(self, obj):
         address = self.deal.dealivery.address
         serializer = SimpleTransactionAddressSerializer(address)
         return serializer.data
 
-    def get_transport(self):
+    def get_transport(self, obj):
         delivery = self.deal.dealivery
         if not delivery.number:
             return None
@@ -143,7 +143,7 @@ class SellerTransactionDetailSerializer(TransactionDetailSerializer):
             return True
         return False
 
-    def get_other_party(self):
+    def get_other_party(self, obj):
         buyer = self.deal.buyer
         serializer = SimpleUserInfoSerializer(buyer)
         return serializer.data
@@ -164,7 +164,7 @@ class BuyerTransactionDetailSerializer(TransactionDetailSerializer):
             return False
         return True
 
-    def get_other_party(self):
+    def get_other_party(self, obj):
         seller = self.deal.seller
         serializer = SimpleUserInfoSerializer(seller)
         return serializer.data
