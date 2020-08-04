@@ -206,7 +206,7 @@ class TransactionViewSet(viewsets.GenericViewSet):
         transaction_obj = self.get_object()
         deal = transaction_obj.deal
 
-        if deal.seller != user:
+        if deal.buyer != user:
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         transaction_obj = deal.transaction
