@@ -46,38 +46,15 @@ class TransactionViewSet(viewsets.GenericViewSet):
         else:
             raise exceptions.APIException(detail='bootpay access token 확인바람')
 
-    @action(methods=['get'], detail=True)
-    def cancel_check(self, request, *args, **kwargs):
-        """
-        거래 취소 버튼을 누를 때 호출되며, 거래취소가 가능한지 확인합니다.
-        api: GET api/v1/transaction/{id}/cancel_check/
-        * id : transaction id
-        """
-        user =request.user
-        transaction_obj = self.get_object()
-        deal = transaction_obj.deal
-
-        if transaction_obj.status in [-1, -2, -3]:  # 이미 거래취소 완료
-            return Response({'error_code': '거래가 취소된 상품입니다.'}, status=status.HTTP_403_FORBIDDEN)
-
-        if deal.seller == user:
-            if transaction_obj.seller_accepted is None:  # 판매 승인, 거절을 하지 않은 경우
-                return Response({'error_code': '판매승인 또는 판매거절을 해주세요'}, status=status.HTTP_403_FORBIDDEN)
-            if transaction_obj.status == 5:
-                return Response({'error_code': '거래가 완료된 상품입니다.'}, status=status.HTTP_403_FORBIDDEN)
-
-        elif deal.buyer == user:
-            if transaction_obj.status == 2:  # 판매승인 => 배송중비중
-                return Response({'error_code': '배송준비중인 상품입니다. 판매자에게 문의해주세요'}, status=status.HTTP_403_FORBIDDEN)
-            if transaction_obj.status == 3:  # 배송중 => 운송장 입력 됨
-                return Response({'error_code': '배송중인 상품입니다. 판매자에게 문의해주세요'}, status=status.HTTP_403_FORBIDDEN)
-            if transaction_obj.status == 5:  # 거래완료 => 구매확정 또는 자동구매확정
-                return Response({'error_code': '거래가 완료된 상품입니다.'}, status=status.HTTP_403_FORBIDDEN)
-
-        else:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-
-        return Response(status=status.HTTP_200_OK)
+    # @action(methods=['get'], detail=True)
+    # def cancel_check(self, request, *args, **kwargs):
+    #     """
+    #     거래 취소 버튼을 누를 때 호출되며, 거래취소가 가능한지 확인합니다.
+    #     api: GET api/v1/transaction/{id}/cancel_check/
+    #     * id : transaction id
+    #     """
+    #
+    #     return Response(status=status.HTTP_200_OK)
 
 
     @transaction.atomic
@@ -88,9 +65,28 @@ class TransactionViewSet(viewsets.GenericViewSet):
         취소 후에 판매 중으로 상태를 변경합니다.
         TODO : post save로 알림 내역 저장. 알림 내역 저장하면서 푸쉬 알림
         """
+
         user = request.user
         transaction_obj = self.get_object()
-        self.deal = transaction_obj.deal
+        deal = transaction_obj.deal
+
+        if transaction_obj.status in [-1, -2, -3]:  # 이미 거래취소 완료
+            return Response({'error_message': '거래가 취소된 상품입니다.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if deal.seller == user:
+            if transaction_obj.seller_accepted is None:  # 판매 승인, 거절을 하지 않은 경우
+                return Response({'error_message': '판매승인 또는 판매거절을 해주세요'}, status=status.HTTP_403_FORBIDDEN)
+            if transaction_obj.status == 5:
+                return Response({'error_message': '거래가 완료된 상품입니다.'}, status=status.HTTP_403_FORBIDDEN)
+
+        elif deal.buyer == user:
+            if transaction_obj.status == 2:  # 판매승인 => 배송중비중
+                return Response({'error_message': '배송준비중인 상품입니다. 판매자에게 문의해주세요'}, status=status.HTTP_403_FORBIDDEN)
+            if transaction_obj.status == 3:  # 배송중 => 운송장 입력 됨
+                return Response({'error_message': '배송중인 상품입니다. 판매자에게 문의해주세요'}, status=status.HTTP_403_FORBIDDEN)
+            if transaction_obj.status == 5:  # 거래완료 => 구매확정 또는 자동구매확정
+                return Response({'error_message': '거래가 완료된 상품입니다.'}, status=status.HTTP_403_FORBIDDEN)
+
         data = request.data.copy()
         buyer_cancel_reason = data.get('reason', None)
         seller_cancel_reason = data.get('reason', None)
