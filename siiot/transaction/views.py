@@ -70,6 +70,7 @@ class TransactionViewSet(viewsets.GenericViewSet):
         transaction_obj = self.get_object()
         deal = transaction_obj.deal
 
+
         if transaction_obj.status in [-1, -2, -3]:  # 이미 거래취소 완료
             return Response({'error_message': '거래가 취소된 상품입니다.'}, status=status.HTTP_403_FORBIDDEN)
 
