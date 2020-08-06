@@ -30,6 +30,8 @@ class TransactionViewSet(viewsets.GenericViewSet):
         self.receipt_id = None
         self.wallet = None
         self.deal = None
+        self.cancel_requester = None
+        self.cancel_reason = ''
 
     @staticmethod
     def get_access_token():
@@ -40,16 +42,6 @@ class TransactionViewSet(viewsets.GenericViewSet):
             return bootpay
         else:
             raise exceptions.APIException(detail='bootpay access token 확인바람')
-
-    # @action(methods=['get'], detail=True)
-    # def cancel_check(self, request, *args, **kwargs):
-    #     """
-    #     거래 취소 버튼을 누를 때 호출되며, 거래취소가 가능한지 확인합니다.
-    #     api: GET api/v1/transaction/{id}/cancel_check/
-    #     * id : transaction id
-    #     """
-    #
-    #     return Response(status=status.HTTP_200_OK)
 
 
     @transaction.atomic
@@ -91,20 +83,26 @@ class TransactionViewSet(viewsets.GenericViewSet):
                 return Response(status=status.HTTP_400_BAD_REQUEST)
             transaction_obj.seller_cancel = True
             transaction_obj.seller_cancel_reason = seller_cancel_reason
+            self.cancel_requester = user
+            self.cancel_reason = '판매자 요청으로 인한 거래취소'
 
         if self.deal.buyer == user:
             if not buyer_cancel_reason:
                 return Response(status=status.HTTP_400_BAD_REQUEST)
             transaction_obj.buyer_cancel = True
             transaction_obj.buyer_cancel_reason = buyer_cancel_reason
+            self.cancel_requester = user
+            self.cancel_reason = '구매자 요청으로 인한 거래취소'
 
         transaction_obj.status = -2
         transaction_obj.save()
 
         # 거래취소이므로 다시 판매중으로 등록
         for product in self.deal.trades.all():
-            product.status.sold = False
-            product.status.save()
+            p_status = product.status
+            p_status.sold = False
+            p_status.sold_status = None
+            p_status.save()
 
         self.payment = self.deal.payment
         self.receipt_id = self.payment.receipt_id
@@ -140,6 +138,16 @@ class TransactionViewSet(viewsets.GenericViewSet):
         transaction_obj.status = -2
         transaction_obj.save()
 
+        # 판매거절 이후 판매자가 알아서 판매완료 처리
+        for product in self.deal.trades.all():
+            p_status = product.status
+            p_status.sold = False
+            p_status.sold_status = None
+            p_status.save()
+
+        self.cancel_requester = user
+        self.cancel_reason = '판매자 요청으로 인한 판매거절 (판매할 수 없는 상태일 때)'
+
         self.payment = self.deal.payment
         self.receipt_id = self.payment.receipt_id
 
@@ -149,7 +157,7 @@ class TransactionViewSet(viewsets.GenericViewSet):
 
     def _payment_cancel_status(self):
         bootpay = self.get_access_token()
-        result = bootpay.cancel(self.receipt_id, name=self.payment.user.nickname, reason='판매자 요청으로 인한 취소')
+        result = bootpay.cancel(self.receipt_id, name=self.cancel_requester, reason=self.cancel_reason)
         serializer = PaymentCancelSerialzier(self.payment, data=result['data'])
 
         if serializer.is_valid():

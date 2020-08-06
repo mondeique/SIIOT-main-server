@@ -178,11 +178,11 @@ class TransactionHistoryViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMix
     @action(methods=['get'], detail=False)
     def sales(self, request, *args, **kwargs):
         """
-        판매내역 : 판매중
+        판매내역 : 결제완료 => 승인대기, 배송중, 준비중 등의 거래 중인 상품들
         api: GET api/v1/transaction-history/sales/
         """
         user = request.user
-        queryset = self.get_queryset().filter(deal__seller=user).exclude(confirm_transaction=True).order_by('-created_at')
+        queryset = self.get_queryset().filter(deal__seller=user, status__in=[1,2,3,4]).order_by('-created_at')
         serializer = self.get_serializer(queryset, many=True)
 
         return Response(serializer.data)
@@ -190,11 +190,11 @@ class TransactionHistoryViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMix
     @action(methods=['get'], detail=False)
     def sold(self, request, *args, **kwargs):
         """
-        판매내역 :  판매완료
+        판매내역 :  판매확정(rename 필요), 판매완료 및 판매자 거절, 거래취소 등의 상태로 거래가 완료된 상품들
         api: GET api/v1/transaction-history/sold/
         """
         user = request.user
-        queryset = self.get_queryset().filter(deal__seller=user, confirm_transaction=True).order_by('-created_at')
+        queryset = self.get_queryset().filter(deal__seller=user, status__in=[5,-1,-2,-3]).order_by('-created_at')
         serializer = self.get_serializer(queryset, many=True)
 
         return Response(serializer.data)
@@ -202,12 +202,12 @@ class TransactionHistoryViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMix
     @action(methods=['get'], detail=False)
     def purchased(self, request, *args, **kwargs):
         """
-        구매내역 => 결제완료 : 결제완료된 상품. 즉 거래중인 상품 + 구매취소 상품 보여줌
+        구매내역 => 결제완료 : 결제완료된 상품. 즉 거래중인 상품
         api: GET api/v1/transaction-history/purchased/
         """
         user = request.user
         queryset = self.get_queryset()\
-            .filter(deal__buyer=user).exclude(confirm_transaction=True).order_by('-created_at')
+            .filter(deal__buyer=user, status__in=[1,2,3,4]).order_by('-created_at')
         serializer = self.get_serializer(queryset, many=True)
 
         return Response(serializer.data)
@@ -215,12 +215,12 @@ class TransactionHistoryViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMix
     @action(methods=['get'], detail=False)
     def purchase_confirmed(self, request, *args, **kwargs):
         """
-        구매내역 => 구매확정 : 구매확정 한 상품 보여줌
+        구매내역 => 구매확정 : 구매확정 한 상품 보여줌 + 구매취소 상품 보여줌
         api: GET api/v1/transaction-history/purchase_confirmed/
         """
         user = request.user
         queryset = self.get_queryset()\
-            .filter(deal__buyer=user).filter(confirm_transaction=True).order_by('-created_at')
+            .filter(deal__buyer=user, status__in=[5,-1,-2,-3]).order_by('-created_at')
         serializer = self.get_serializer(queryset, many=True)
 
         return Response(serializer.data)

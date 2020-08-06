@@ -359,7 +359,7 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
             payment.save()
 
             # bootpay 취소 요청
-            result = bootpay.cancel(receipt_id)
+            result = bootpay.cancel(receipt_id, name='siiot', reason='시옷 서버 결제승인 실패로 인한 결제취소')
             serializer = PaymentCancelSerialzier(payment, data=result['data'])
 
             if serializer.is_valid():
