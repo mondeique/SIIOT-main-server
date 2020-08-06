@@ -196,7 +196,7 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         data = request.data.copy()
 
         # test for web
-        data = {"trade": [3], "price": 100,
+        data = {"trade": [5], "price": 100,
                 "address": {"name":"이름",
                             "phone": '01032423121',
                             "zipNo":'12345',

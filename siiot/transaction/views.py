@@ -17,11 +17,6 @@ class TransactionViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAuthenticated, ]
     serializer_class = None
     queryset = Transaction.objects\
-                            .select_related('deal',
-                                            'deal__trades__product',
-                                            'deal__seller',
-                                            'deal__buyer',
-                                            'deal__payment')\
                             .filter(deal__trades__product__status__sold=True, deal__trades__product__status__sold_status=1)
     """
     구매자 결제 이후 구매 취소, 판매 거절, 판매 승인, 구매 확정 등 결제이후 행동에 관련된 api 입니다.
@@ -154,7 +149,7 @@ class TransactionViewSet(viewsets.GenericViewSet):
 
     def _payment_cancel_status(self):
         bootpay = self.get_access_token()
-        result = bootpay.cancel(self.receipt_id)
+        result = bootpay.cancel(self.receipt_id, name=self.payment.user.nickname, reason='판매자 요청으로 인한 취소')
         serializer = PaymentCancelSerialzier(self.payment, data=result['data'])
 
         if serializer.is_valid():

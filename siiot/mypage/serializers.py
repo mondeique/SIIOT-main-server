@@ -114,11 +114,11 @@ class TransactionHistorySerializer(serializers.ModelSerializer):
         elif status == 3:
             return '배송 중'
         elif status == 5:
-            return '거래완료'
+            return '거래 완료'
         elif status == -2 and not seller_accepted:
             return '판매자 거절'
         elif status in [-1, -2, -3]:
-            return '거래취소'
+            return '거래 취소'
         return None
 
     def get_price(self, obj):

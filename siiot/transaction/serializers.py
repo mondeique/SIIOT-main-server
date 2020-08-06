@@ -160,7 +160,7 @@ class BuyerTransactionDetailSerializer(TransactionDetailSerializer):
         # 구매자 거래취소 버튼 활성화 : 결제취소시, 구매확정시 제외하고는 거래취소 버튼 존재.
         # 이때, check cancel 호출 하여 pop up 띄움.
         status = transaction_obj.status
-        if status in [-1, -2, -3, 5]:
+        if status in [-1, -2, -3, 2, 3, 4, 5]:
             return False
         return True
 
