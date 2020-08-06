@@ -137,23 +137,16 @@ class TradeViewSet(viewsets.GenericViewSet, mixins.DestroyModelMixin):
             addr = TempAddressSerializer(buyer).data
 
         trade_serializer = TradeSerializer(trade)
-        ordering_product = groupbyseller(trade_serializer.data)
-
-        payinfo_data = ordering_product.copy()
-        payinfo = payinfo_data.pop('payinfo')
-        total_price = int(payinfo['total'])
-        delivery_charge = int(payinfo['delivery_charge'])
-        mountain_delivery_charge = int(payinfo['mountain_delivery_charge'])
+        trade_data = trade_serializer.data
 
         return Response(
-            {"ordering_product": ordering_product,
+            {"seller": trade_data['seller'],
+             "product": {'trade_id':trade_data['id'],
+                         'product':trade_data['product'],
+                         'status':trade_data['status']},
+             "payinfo": {'total_product_price':trade_data['product']['price']},
              "user_info": user_info,
-             "address": addr,
-             "price": {"price": total_price,
-                       "delivery_charge": delivery_charge,
-                       "mountain_delivery_charge": mountain_delivery_charge,
-                       }
-             }
+             "address": addr}
             , status=status.HTTP_200_OK)
 
 

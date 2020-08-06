@@ -21,14 +21,14 @@ from products.banner.serializers import BannerSerializer
 from products.category.models import FirstCategory, SecondCategory, Size, Color, PopularTempKeyword
 from products.category.serializers import FirstCategorySerializer, SecondCategorySerializer, SizeSerializer, \
     ColorSerializer, CategorySearchSerializer
-from products.models import Product, ProductImages, ProductViews,\
+from products.models import Product, ProductImages, ProductViews, \
     ProductLike, ProdThumbnail, ProductStatus
 # ProductLike
 from products.reply.serializers import ProductRepliesSerializer
 from products.serializers import ProductFirstSaveSerializer, ReceiptSaveSerializer, ProductSaveSerializer, \
     ProductImageSaveSerializer, ProductUploadDetailInfoSerializer, ProductTempUploadDetailInfoSerializer, \
     ProductRetrieveSerializer, ProductMainSerializer, LikeSerializer, \
-    RecentlySearchedKeywordSerializer, SearchDefaultSerializer, PopularTempKeywordSerializer  # LikeSerializer
+    RecentlySearchedKeywordSerializer, SearchDefaultSerializer, PopularTempKeywordSerializer
 from products.shopping_mall.models import ShoppingMall
 from products.shopping_mall.serializers import ShoppingMallSerializer, ShoppingMallSearchSerializer
 from products.slack import slack_message
@@ -38,10 +38,14 @@ from core.pagination import SiiotPagination
 from user_activity.models import RecentlyViewedProduct, RecentlySearchedKeyword
 
 
-class ProductViewSet(viewsets.ModelViewSet):
+class ProductViewSet(mixins.CreateModelMixin,
+                     mixins.RetrieveModelMixin,
+                     mixins.UpdateModelMixin,
+                     mixins.DestroyModelMixin,
+                     viewsets.GenericViewSet):
     permission_classes = [ProductViewPermission, ]
-    queryset = Product.objects.all().select_related('seller', 'seller__profile', 'seller__delivery_policy')\
-                              .select_related('receipt', 'category', 'purchased_time', 'color', 'size', 'views')
+    queryset = Product.objects.all().select_related('seller', 'seller__profile', 'seller__delivery_policy') \
+        .select_related('receipt', 'category', 'purchased_time', 'color', 'size', 'views')
 
     """
     상품 업로드 및 조회에 관련된 ViewSet 입니다.
@@ -68,7 +72,7 @@ class ProductViewSet(viewsets.ModelViewSet):
             return ProductRepliesSerializer
         elif self.action in ['like']:
             return LikeSerializer
-        elif self.action in ['likes', 'filter']:
+        elif self.action in ['filter', 'likes']:
             return ProductMainSerializer
         else:
             return super(ProductViewSet, self).get_serializer_class()
@@ -188,9 +192,9 @@ class ProductViewSet(viewsets.ModelViewSet):
         product.receipt = receipt
         product.save()
 
-        product_info_serializer = ProductUploadDetailInfoSerializer(product)
+        # product_info_serializer = ProductUploadDetailInfoSerializer(product)
 
-        return Response(product_info_serializer.data, status=status.HTTP_206_PARTIAL_CONTENT)
+        return Response(status=status.HTTP_206_PARTIAL_CONTENT)
 
     @action(methods=['put'], detail=True)
     def images(self, request, *args, **kwargs):
@@ -288,23 +292,7 @@ class ProductViewSet(viewsets.ModelViewSet):
             ))
         ProductImages.objects.bulk_create(bulk_create_list)
 
-        if not obj.crawl_product_id:
-            # 크롤링 실패 한 경우 or 크롤링 할 수 없는 사이트인 경우 피드에 노출됨 possible_upload=True, crawl_product_id = None
-
-            product = serializer.update(obj, data)
-
-            # crawl_failed_upload_req = ProductCrawlFailedUploadRequest(product=product)
-            # left_count = ProductCrawlFailedUploadRequest.objects.filter(is_done=False).count()
-            #
-            # slack_message("[(크롤링 실패)업로드 요청] \n [요청id:{}] -상품명:{}, -신청자:{} || 남은개수 {} ({})".
-            #               format(crawl_failed_upload_req.id, product.name, request.user, left_count,
-            #                      timezone.now().strftime('%y/%m/%d %H:%M')),
-            #               'crawl_error_upload')
-
-        else:
-            # 구매내역이 없는 경우(직접 업로드) 또는 크롤링 성공한 경우
-            # 이 경우만 메인에 노출됨  possible_upload=True, crawl_product_id exists
-            product = serializer.update(obj, data)
+        product = serializer.update(obj, data)
 
         # status save
         ProductStatus.objects.create(product=product)
@@ -431,13 +419,6 @@ class ProductViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(questions, many=True)
         return Response(serializer.data)
 
-    def list(self, request, *args, **kwargs):
-        """
-        상품 list 조회하는 api 입니다.
-        추가할 것) 판매자 상품인지 아닌지 등과 같은 부가정보 (기획필수)
-        api: GET api/v1/product/
-        """
-        return super(ProductViewSet, self).list(request, *args, **kwargs)
 
     @action(methods=['put'], detail=True, permission_classes=[IsAuthenticated, ])
     def like(self, request, *args, **kwargs):
@@ -473,7 +454,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         :return:
        """
         user = request.user
-        queryset = Product.objects.filter(liked__user=user, liked__is_liked=True ,is_active=True, status__hiding=False)\
+        queryset = Product.objects.filter(liked__user=user, liked__is_liked=True ,is_active=True, status__hiding=False) \
             .order_by('-liked__created_at')
 
         serializer = self.get_serializer(queryset, many=True, context={'request': request})
@@ -564,10 +545,10 @@ class ShoppingMallViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
             print('asd')
             other_add_shop_obj = self.get_queryset().filter(name__icontains='선택')
             other_add_shop_obj_ids = other_add_shop_obj.values_list('pk', flat=True)
-            value = self.get_queryset()\
-                    .filter(name__icontains=keyword) \
-                    .exclude(id__in=other_add_shop_obj_ids) \
-                    .order_by('id')[:30]
+            value = self.get_queryset() \
+                        .filter(name__icontains=keyword) \
+                        .exclude(id__in=other_add_shop_obj_ids) \
+                        .order_by('id')[:30]
             queryset = list(other_add_shop_obj) + list(value)
             serializer = self.get_serializer(queryset, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -749,8 +730,8 @@ class SearchViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
         if len(keyword) < 1:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
-        products = Product.objects.filter(name__icontains=keyword, is_active=True, temp_save=False)\
-            .filter(status__sold=False, status__hiding=False)\
+        products = Product.objects.filter(name__icontains=keyword, is_active=True, temp_save=False) \
+            .filter(status__sold=False, status__hiding=False) \
             .order_by('-created_at')
 
         # save recently searched keyword
@@ -768,8 +749,8 @@ class SearchViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
 
         shopping_mall = get_object_or_404(ShoppingMall, pk=kwargs['pk'])
 
-        products = Product.objects.filter(shopping_mall=shopping_mall, is_active=True, temp_save=False)\
-            .filter(status__sold=False, status__hiding=False)\
+        products = Product.objects.filter(shopping_mall=shopping_mall, is_active=True, temp_save=False) \
+            .filter(status__sold=False, status__hiding=False) \
             .order_by('-created_at')
 
         # save recently searched keyword
@@ -821,32 +802,32 @@ class SearchViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
         return Response(searched_data)
 
     def search_by_shop(self):
-        shop_queryset = ShoppingMall.objects.prefetch_related('products')\
+        shop_queryset = ShoppingMall.objects.prefetch_related('products') \
             .filter(name__icontains=self.keyword)
         serializer = ShoppingMallSearchSerializer(shop_queryset, many=True)
         return serializer.data
 
     def search_by_category(self):
-        category_queryset = SecondCategory.objects.prefetch_related('product_set')\
-            .filter(name__icontains=self.keyword)\
-            .annotate(product_count=Count('product'))\
-            .order_by('-product_count')[:5]
+        category_queryset = SecondCategory.objects.prefetch_related('product_set') \
+                                .filter(name__icontains=self.keyword) \
+                                .annotate(product_count=Count('product')) \
+                                .order_by('-product_count')[:5]
         serializer = CategorySearchSerializer(category_queryset, many=True)
         return serializer.data
 
     def search_by_product(self):
-        searched_product = Product.objects.filter(name__icontains=self.keyword)\
-            .filter(is_active=True)\
+        searched_product = Product.objects.filter(name__icontains=self.keyword) \
+            .filter(is_active=True) \
             .filter(status__sold=False, status__hiding=False)
         return searched_product.count()
 
 
 class MainViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
-    queryset = Product.objects\
-        .filter(is_active=True, temp_save=False)\
-        .filter(status__hiding=False)\
-        .select_related('seller', 'color', 'size', 'category', 'purchased_time')\
-        .select_related('prodthumbnail', 'views')\
+    queryset = Product.objects \
+        .filter(is_active=True, temp_save=False) \
+        .filter(status__hiding=False) \
+        .select_related('seller', 'color', 'size', 'category', 'purchased_time') \
+        .select_related('prodthumbnail', 'views') \
         .prefetch_related('images')
     serializer_class = ProductMainSerializer
     permission_classes = [AllowAny, ]

@@ -62,16 +62,20 @@ class TempCrawlDataSerializer(serializers.ModelSerializer):
 class ProductMainSerializer(serializers.ModelSerializer):
     """
     상품 메인페이지 및 찜한 상품 조회에 사용하는 serializer 입니다.
+    [UPDATED] 20.08.06 : 할인율, 상품상태 등
     """
     thumbnail_image_url = serializers.SerializerMethodField(read_only=True)
-    int_price = serializers.SerializerMethodField(read_only=True)
     is_owner = serializers.SerializerMethodField()
-    has_receipt = serializers.SerializerMethodField()
     sold = serializers.SerializerMethodField()
 
     # for develop
     price = serializers.SerializerMethodField()
     name = serializers.SerializerMethodField()
+
+    discount_rate = serializers.SerializerMethodField()
+    shopping_mall = serializers.SerializerMethodField()
+    origin_price = serializers.SerializerMethodField()
+    receipt_certify = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -79,18 +83,28 @@ class ProductMainSerializer(serializers.ModelSerializer):
                   'name',
                   'thumbnail_image_url',
                   'price',
-                  'int_price',
-                  'has_receipt',
                   'sold',
-                  'is_owner']
+                  'is_owner',
+                  'discount_rate',
+                  'shopping_mall',
+                  'origin_price',
+                  'condition',
+                  'receipt_certify',
+                  ]
 
     @staticmethod
-    def get_has_receipt(obj):
+    def get_receipt_certify(obj):
+        # todo : 구매내역 인증 시 True
         if obj.receipt:
             return True
         return False
 
-    def get_int_price(self, obj):
+    @staticmethod
+    def get_shopping_mall(obj):
+        shopping_mall = obj.shopping_mall
+        return ShoppingMallSerializer(shopping_mall).data
+
+    def get_origin_price(self, obj):
         if not obj.crawl_product_id:
             return None
         return CrawlProduct.objects.get(id=obj.crawl_product_id).int_price
@@ -98,7 +112,17 @@ class ProductMainSerializer(serializers.ModelSerializer):
     def get_price(self, obj):
         if obj.price:
             return obj.price
-        return 999
+        return 0
+
+    def get_discount_rate(self, obj):
+        if not obj.crawl_product_id:
+            return None
+        origin_price = CrawlProduct.objects.get(id=obj.crawl_product_id).int_price
+        price = obj.price
+        rate = round(abs(origin_price - price) / origin_price, 2) * 100
+        if not origin_price - price > 0:
+            return None
+        return rate
 
     def get_name(self, obj):
         if obj.name:
@@ -117,7 +141,7 @@ class ProductMainSerializer(serializers.ModelSerializer):
             try:
                 return obj.images.first().image_url
             except:
-                return test_thumbnail_image_url
+                return test_thumbnail_image_url #TODO => 상품이 없습니다 이미지
         return CrawlProduct.objects.get(id=obj.crawl_product_id).thumbnail_image_url
 
     def get_is_owner(self, obj):
@@ -134,7 +158,7 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
     thumbnail_image_url = serializers.SerializerMethodField()
     # crawl_data = serializers.SerializerMethodField()
     int_price = serializers.SerializerMethodField()
-    # receipt_image_url = serializers.SerializerMethodField()
+    receipt_image_url = serializers.SerializerMethodField()
     # name = serializers.SerializerMethodField()
     discount_rate = serializers.SerializerMethodField()
     is_receipt = serializers.SerializerMethodField()
@@ -186,7 +210,7 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
                   'content',
                   'images', #
                   'crawled_images',
-                  # 'receipt_image_url', #
+                  'receipt_image_url', #
                   'first_category', #
                   'second_category', #
                   'size', #
@@ -306,13 +330,12 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
         detail_images = d_images[d_image_center_id-4:d_image_center_id+4]
         return CrawlProductImagesRetrieveSerializer(detail_images, many=True).data
 
-
-    # @staticmethod
-    # def get_receipt_image_url(obj):
-    #     if obj.receipt:
-    #         return obj.receipt.image_url
-    #     else:
-    #         return None
+    @staticmethod
+    def get_receipt_image_url(obj):
+        if obj.receipt:
+            return obj.receipt.image_url
+        else:
+            return None
 
     @staticmethod
     def get_category(obj):
