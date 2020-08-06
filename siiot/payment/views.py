@@ -344,7 +344,6 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
                     for deal in payment.deal_set.all():
                         # 판매 승인 모델 생성 : 각 상품 별로 판매 승인이 이루어집니다.
                         Transaction.objects.create(deal=deal, due_date=datetime.now()+timedelta(hours=12))
-                        ChatRoom.objects.create(seller=deal.seller, buyer=deal.buyer, deal=deal)
 
                         # todo : 거래내역 확인 및 알림 처리
                         # reference = UserActivityReference.objects.create(deal=deal)
@@ -377,7 +376,7 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
                 payment.save()
 
                 for deal in payment.deal_set.all():
-                    Transaction.objects.create(deal=deal, status=-2)
+                    Transaction.objects.create(deal=deal, status=-2, canceled_at=datetime.now())
 
                 # activity log : buyer 결제 취소됨
                 # UserActivityLog.objects.create(user=buyer, status=190)

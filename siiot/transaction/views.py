@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.db import transaction
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -32,6 +34,7 @@ class TransactionViewSet(viewsets.GenericViewSet):
         self.deal = None
         self.cancel_requester = None
         self.cancel_reason = ''
+        self.transaction = None
 
     @staticmethod
     def get_access_token():
@@ -96,6 +99,7 @@ class TransactionViewSet(viewsets.GenericViewSet):
 
         transaction_obj.status = -2
         transaction_obj.save()
+        self.transaction = transaction_obj
 
         # 거래취소이므로 다시 판매중으로 등록
         for product in self.deal.trades.all():
@@ -137,6 +141,7 @@ class TransactionViewSet(viewsets.GenericViewSet):
         transaction_obj.seller_reject_reason = seller_reject_reason
         transaction_obj.status = -2
         transaction_obj.save()
+        self.transaction = transaction_obj
 
         # 판매거절 이후 판매자가 알아서 판매완료 처리
         for product in self.deal.trades.all():
@@ -170,6 +175,10 @@ class TransactionViewSet(viewsets.GenericViewSet):
             # payment : 결제 취소 완료 : 한번에 하나 결제이기 떄문에
             self.payment.status = 20
             self.payment.save()
+
+            # transaction : 결제 취소 시각 저장
+            self.transaction.canceled_at = datetime.now()
+            self.transaction.save()
 
             for trade in self.deal.trades.all():
                 trade.status = 2
