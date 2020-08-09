@@ -93,6 +93,7 @@ class TransactionHistorySerializer(serializers.ModelSerializer):
         fields = ['id', 'thumbnail_image_url', 'price', 'name', 'status', 'created_at']
 
     def get_thumbnail_image_url(self, obj):
+        print(obj.deal.trades.first().product)
         self.product = obj.deal.trades.first().product
         if not self.product.crawl_product_id:
             if hasattr(self.product, 'prodthumbnail'):
@@ -115,7 +116,7 @@ class TransactionHistorySerializer(serializers.ModelSerializer):
             return '배송 중'
         elif status == 5:
             return '거래 완료'
-        elif status == -2 and not seller_accepted:
+        elif status == -2 and seller_accepted is False:
             return '판매자 거절'
         elif status in [-1, -2, -3]:
             return '거래 취소'

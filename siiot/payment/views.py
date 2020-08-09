@@ -144,7 +144,9 @@ class TradeViewSet(viewsets.GenericViewSet, mixins.DestroyModelMixin):
              "product": {'trade_id':trade_data['id'],
                          'product':trade_data['product'],
                          'status':trade_data['status']},
-             "payinfo": {'total_product_price':trade_data['product']['price']},
+             "payinfo": {'total_product_price':trade_data['product']['price'],
+                         'delivery_charge':trade_data['payinfo']['general'],
+                         'total_price': trade_data['product']['price']+trade_data['payinfo']['general']},
              "user_info": user_info,
              "address": addr}
             , status=status.HTTP_200_OK)
@@ -187,16 +189,15 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         :return: result {payform}
         """
         data = request.data.copy()
-
-        # test for web
-        data = {"trade": [5], "price": 100,
-                "address": {"name":"이름",
-                            "phone": '01032423121',
-                            "zipNo":'12345',
-                            "Addr":'서울시 관악구',
-                            "detailAddr": '302호'},
-                "memo":'',
-                "application_id" : 1}
+        # # test for web
+        # data = {"trade": [5], "price": 100,
+        #         "address": {"name":"이름",
+        #                     "phone": '01032423121',
+        #                     "zipNo":'12345',
+        #                     "Addr":'서울시 관악구',
+        #                     "detailAddr": '302호'},
+        #         "memo":'',
+        #         "application_id" : 1}
         self.data = data
         self.request = request
         self.user = request.user
@@ -433,8 +434,10 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         client 의 price 와 실제 data 상의 price 가 맞는지 check 합니다.
         * 결제 중 seller 가 상품의 가격을 수정하는 경우 에러가 발생합니다.
         """
-        total_sum = self.payment.deal_set.aggregate(total_sum=Sum('total'))['total_sum']
-        if total_sum != int(self.serializer.validated_data.get('price')):
+        product_price_sum = self.payment.deal_set.aggregate(total_sum=Sum('total'))['total_sum']
+        delivery_charge_sum = self.payment.deal_set.aggregate(delivery_sum=Sum('seller__delivery_policy__general'))['delivery_sum']
+        total = product_price_sum + delivery_charge_sum
+        if total != int(self.serializer.validated_data.get('price')):
             product_ids = Product.objects.filter(trades__in=self.trades).values_list('pk', flat=True)
             TradeErrorLog.objects.create(user=self.user, product_ids=product_ids, status=1,
                                          description="상품의 가격이 맞지 않습니다. 결제 중 셀러가 가격을 수정하였거나, 서버 확인이 필요합니다.")

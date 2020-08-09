@@ -104,7 +104,7 @@ class PaymentSerializer(serializers.Serializer):
     trade = serializers.ListField()
     price = serializers.IntegerField()
     address = serializers.CharField()
-    memo = serializers.CharField(allow_blank=True)
+    memo = serializers.CharField(default='')
     mountain = serializers.BooleanField(default=False)
     application_id = serializers.IntegerField()  # 1: web, 2:android, 3:ios
 

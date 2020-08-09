@@ -58,18 +58,17 @@ class TransactionViewSet(viewsets.GenericViewSet):
 
         user = request.user
         transaction_obj = self.get_object()
-        deal = transaction_obj.deal
-
+        self.deal = transaction_obj.deal
         if transaction_obj.status in [-1, -2, -3]:  # 이미 거래취소 완료
             return Response({'error_message': '거래가 취소된 상품입니다.'}, status=status.HTTP_403_FORBIDDEN)
 
-        if deal.seller == user:
+        if self.deal.seller == user:
             if transaction_obj.seller_accepted is None:  # 판매 승인, 거절을 하지 않은 경우
                 return Response({'error_message': '판매승인 또는 판매거절을 해주세요'}, status=status.HTTP_403_FORBIDDEN)
             if transaction_obj.status == 5:
                 return Response({'error_message': '거래가 완료된 상품입니다.'}, status=status.HTTP_403_FORBIDDEN)
 
-        elif deal.buyer == user:
+        elif self.deal.buyer == user:
             if transaction_obj.status == 2:  # 판매승인 => 배송중비중
                 return Response({'error_message': '배송준비중인 상품입니다. 판매자에게 문의해주세요'}, status=status.HTTP_403_FORBIDDEN)
             if transaction_obj.status == 3:  # 배송중 => 운송장 입력 됨
@@ -86,6 +85,7 @@ class TransactionViewSet(viewsets.GenericViewSet):
                 return Response(status=status.HTTP_400_BAD_REQUEST)
             transaction_obj.seller_cancel = True
             transaction_obj.seller_cancel_reason = seller_cancel_reason
+            transaction_obj.save()
             self.cancel_requester = user
             self.cancel_reason = '판매자 요청으로 인한 거래취소'
 
@@ -94,6 +94,7 @@ class TransactionViewSet(viewsets.GenericViewSet):
                 return Response(status=status.HTTP_400_BAD_REQUEST)
             transaction_obj.buyer_cancel = True
             transaction_obj.buyer_cancel_reason = buyer_cancel_reason
+            transaction_obj.save()
             self.cancel_requester = user
             self.cancel_reason = '구매자 요청으로 인한 거래취소'
 
@@ -102,8 +103,8 @@ class TransactionViewSet(viewsets.GenericViewSet):
         self.transaction = transaction_obj
 
         # 거래취소이므로 다시 판매중으로 등록
-        for product in self.deal.trades.all():
-            p_status = product.status
+        for trade in self.deal.trades.all():
+            p_status = trade.product.status
             p_status.sold = False
             p_status.sold_status = None
             p_status.save()

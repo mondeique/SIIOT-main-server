@@ -4,6 +4,7 @@ from django.contrib.auth import (
     get_user_model)
 from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
+from django.shortcuts import render
 
 from rest_framework.response import Response
 from rest_framework import status
@@ -382,3 +383,6 @@ class SMSViewSet(viewsets.GenericViewSet):
 
         return Response({'phone': obj.phone, 'temp_key': obj.temp_key}, status=status.HTTP_200_OK)
 
+
+def search_address_page(request):
+    return render(request, 'address.html')

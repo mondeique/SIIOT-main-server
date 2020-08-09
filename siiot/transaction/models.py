@@ -43,7 +43,7 @@ class Transaction(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    canceled_at = models.DateField(null=True, blank=True)
+    canceled_at = models.DateTimeField(null=True, blank=True)
 
     due_date = models.DateTimeField(help_text="유효 시간입니다. created_at + 12h로 자동생성 됩니다."
                                               "유효시간이 지날 경우 cron 에서 체크하여 구매 취소 처리 합니다.")

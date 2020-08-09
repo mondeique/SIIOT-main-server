@@ -1,4 +1,4 @@
-from django.db.models import F
+from django.db.models import F, Q
 
 from rest_framework.response import Response
 from rest_framework import status
@@ -194,7 +194,11 @@ class TransactionHistoryViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMix
         api: GET api/v1/transaction-history/sold/
         """
         user = request.user
-        queryset = self.get_queryset().filter(deal__seller=user, status__in=[5,-1,-2,-3]).order_by('-created_at')
+        queryset = self.get_queryset().filter(deal__seller=user)\
+            .exclude(status__in=[1,2,3,4])\
+            .filter(Q(seller_accepted=False)|
+                   Q(seller_cancel=True)|
+                   Q(buyer_cancel=True)).order_by('-created_at')
         serializer = self.get_serializer(queryset, many=True)
 
         return Response(serializer.data)
@@ -220,7 +224,13 @@ class TransactionHistoryViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMix
         """
         user = request.user
         queryset = self.get_queryset()\
-            .filter(deal__buyer=user, status__in=[5,-1,-2,-3]).order_by('-created_at')
+            .filter(deal__buyer=user)\
+            .exclude(status__in=[1,2,3,4])\
+            .filter(Q(seller_accepted=False)|
+                    Q(seller_cancel=True)|
+                    Q(buyer_cancel=True))\
+            .order_by('-created_at')
+
         serializer = self.get_serializer(queryset, many=True)
 
         return Response(serializer.data)
