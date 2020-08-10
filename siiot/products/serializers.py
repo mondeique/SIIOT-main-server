@@ -134,15 +134,16 @@ class ProductMainSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_thumbnail_image_url(obj):
-        if not obj.crawl_product_id:
-            if hasattr(obj, 'prodthumbnail'):
-                return obj.prodthumbnail.image_url
-            # for develop
-            try:
-                return obj.images.first().image_url
-            except:
-                return test_thumbnail_image_url #TODO => 상품이 없습니다 이미지
-        return CrawlProduct.objects.get(id=obj.crawl_product_id).thumbnail_image_url
+        # TODO : filter Crawled image ratio
+        if obj.crawl_product_id:
+            c_product = CrawlProduct.objects.filter(id=obj.crawl_product_id)
+            if c_product.exists():
+                return CrawlProduct.objects.filter(id=obj.crawl_product_id).first().thumbnail_image_url
+
+        if hasattr(obj, 'prodthumbnail'):
+            return obj.prodthumbnail.image_url
+
+        return obj.images.first().image_url
 
     def get_is_owner(self, obj):
         user = self.context['request'].user
