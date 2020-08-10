@@ -107,7 +107,11 @@ class ProductMainSerializer(serializers.ModelSerializer):
     def get_origin_price(self, obj):
         if not obj.crawl_product_id:
             return None
-        return CrawlProduct.objects.get(id=obj.crawl_product_id).int_price
+        if CrawlProduct.objects.filter(id=obj.crawl_product_id).exists():
+            origin_price = CrawlProduct.objects.filter(id=obj.crawl_product_id).last().int_price
+        else:
+            return None
+        return origin_price
 
     def get_price(self, obj):
         if obj.price:
@@ -117,7 +121,10 @@ class ProductMainSerializer(serializers.ModelSerializer):
     def get_discount_rate(self, obj):
         if not obj.crawl_product_id:
             return None
-        origin_price = CrawlProduct.objects.get(id=obj.crawl_product_id).int_price
+        if CrawlProduct.objects.filter(id=obj.crawl_product_id).exists():
+            origin_price = CrawlProduct.objects.filter(id=obj.crawl_product_id).last().int_price
+        else:
+            return None
         price = obj.price
         rate = round(abs(origin_price - price) / origin_price, 2) * 100
         if not origin_price - price > 0:
@@ -297,7 +304,10 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
     @staticmethod
     def get_discount_rate(obj):
         if obj.crawl_product_id:
-            crawl_price = CrawlProduct.objects.get(id=obj.crawl_product_id).int_price
+            if CrawlProduct.objects.filter(id=obj.crawl_product_id).exists():
+                crawl_price = CrawlProduct.objects.filter(id=obj.crawl_product_id).last().int_price
+            else:
+                return None
             price = obj.price
             if not price:
                 return None

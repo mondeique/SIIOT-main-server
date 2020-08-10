@@ -540,9 +540,7 @@ class ShoppingMallViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
         api: GET api/v1/shopping_mall/searching/?search_query=[]
         """
         keyword = request.query_params.get('search_query', None)
-        print(keyword)
         if keyword:
-            print('asd')
             other_add_shop_obj = self.get_queryset().filter(name__icontains='선택')
             other_add_shop_obj_ids = other_add_shop_obj.values_list('pk', flat=True)
             value = self.get_queryset() \
