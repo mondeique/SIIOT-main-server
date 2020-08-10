@@ -327,7 +327,10 @@ class ProductRetrieveSerializer(serializers.ModelSerializer):
 
         # logic 필요
         d_image_center_id = int(round(d_images.count() / 2))
-        detail_images = d_images[d_image_center_id-4:d_image_center_id+4]
+        if d_image_center_id < 4:
+            detail_images = d_images
+        else:
+            detail_images = d_images[d_image_center_id-4:d_image_center_id+4]
         return CrawlProductImagesRetrieveSerializer(detail_images, many=True).data
 
     @staticmethod
