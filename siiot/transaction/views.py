@@ -1,4 +1,5 @@
 from datetime import datetime
+from django.shortcuts import get_object_or_404
 
 from django.db import transaction
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -12,6 +13,7 @@ from transaction.models import Transaction
 from payment.Bootpay import BootpayApi
 from payment.loader import load_credential
 from payment.models import Deal
+from chat.models import ChatRoom, ChatMessage
 from payment.serializers import PaymentCancelSerialzier
 
 
@@ -114,6 +116,12 @@ class TransactionViewSet(viewsets.GenericViewSet):
 
         self._payment_cancel_status()
 
+        chatroom = get_object_or_404(ChatRoom, seller=transaction_obj.deal.seller, buyer=transaction_obj.deal.buyer,
+                                     deal=transaction_obj.deal, product=transaction_obj.deal.trades.first().product)
+        ChatMessage.objects.create(message_type=1, room=chatroom, text="거래가 취소되었습니다.",
+                                   owner=transaction_obj.deal.buyer)
+        ChatMessage.objects.create(message_type=1, room=chatroom, text="거래가 취소되었습니다.",
+                                   owner=transaction_obj.deal.seller)
         return Response({'detail': 'canceled'}, status=status.HTTP_200_OK)
 
     @transaction.atomic
@@ -158,6 +166,13 @@ class TransactionViewSet(viewsets.GenericViewSet):
         self.receipt_id = self.payment.receipt_id
 
         self._payment_cancel_status()
+
+        chatroom = get_object_or_404(ChatRoom, seller=transaction_obj.deal.seller, buyer=transaction_obj.deal.buyer,
+                                     deal=transaction_obj.deal, product=transaction_obj.deal.trades.first().product)
+        ChatMessage.objects.create(message_type=1, room=chatroom, text="판매자가 판매를 거절하였습니다.",
+                                   owner=transaction_obj.deal.seller)
+        ChatMessage.objects.create(message_type=1, room=chatroom, text="거절사유 :" + seller_reject_reason,
+                                   owner=transaction_obj.deal.seller)
 
         return Response({'detail': 'canceled'}, status=status.HTTP_200_OK)
 
@@ -206,6 +221,15 @@ class TransactionViewSet(viewsets.GenericViewSet):
         transaction_obj.status = 2
         transaction_obj.save()
 
+        chatroom = get_object_or_404(ChatRoom, seller=transaction_obj.deal.seller, buyer=transaction_obj.deal.buyer,
+                                     deal=transaction_obj.deal, product=transaction_obj.deal.trades.first().product)
+        ChatMessage.objects.create(message_type=1, room=chatroom, text="판매자가 판매를 승인하였습니다.",
+                                   owner=transaction_obj.deal.seller)
+        ChatMessage.objects.create(message_type=1, room=chatroom, text="상품을 배송 보내는 경우, 배송 완료 후 꼭 운송장 번호를 입력해주세요.",
+                                   owner=transaction_obj.deal.buyer)
+        ChatMessage.objects.create(message_type=1, room=chatroom, text="배송지 정보는 마이페이지 상세내역에서 확인 가능합니다.",
+                                   owner=transaction_obj.deal.buyer)
+
         return Response(status=status.HTTP_201_CREATED)
 
     @transaction.atomic
@@ -226,6 +250,11 @@ class TransactionViewSet(viewsets.GenericViewSet):
         transaction_obj.confirm_transaction = True
         transaction_obj.status = 5
         transaction_obj.save()  # create wallet
+
+        chatroom = get_object_or_404(ChatRoom, seller=transaction_obj.deal.seller, buyer=transaction_obj.deal.buyer,
+                                     deal=transaction_obj.deal, product=transaction_obj.deal.trades.first().product)
+        ChatMessage.objects.create(message_type=1, room=chatroom, text="구매가 확정되었습니다.",
+                                   owner=transaction_obj.deal.buyer)
 
         return Response(status=status.HTTP_200_OK)
 

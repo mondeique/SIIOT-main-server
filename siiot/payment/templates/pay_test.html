@@ -1,0 +1,104 @@
+<html>
+<head>
+  <script src="https://cdn.bootpay.co.kr/js/bootpay-3.1.0.min.js" type="application/javascript"></script>
+  <script
+          src="https://code.jquery.com/jquery-2.2.4.js"
+          integrity="sha256-iT6Q9iMJYuQiMWNd9lDyBUStIq/8PuOW33aOqmvFpqI="
+          crossorigin="anonymous"></script>
+</head>
+<body>
+<script>
+    function pay() {
+        $.ajaxSetup({
+            headers: {"Authorization": "Token 3887e955bd5307ba007109ad98479dcb7c995d1c"}
+        });
+        var trade = [5];
+        var address = {"name":"이름","phone": '01032423121', "zipNo":'12345', "Addr":'서울시 관악구', "detailAddr": '302호'}
+        console.log(trade);
+        console.log(address);
+        jQuery.ajaxSettings.traditional = true;
+        $.ajax({
+            type: 'POST',
+            url: '/api/v1/payment/',
+            data: {"trade": trade, "price": 100,
+                "address":JSON.stringify(address),
+                "memo":'', "application_id": 1},
+            async: false,
+            traditional : true,
+            success: function (data) {
+                console.log(data)
+                if (data['code'] == -1) {
+                    alert('재고가 없습니다')
+                } else if (data['code'] ==-2){
+                    alert('데이터가 없습니다.')
+                } else {
+                    var order_id = data['results']['order_id'];
+                    var daa = data['results'];
+                    console.log(daa['payform'])
+                    BootPay.request(data['results']
+                    ).error(function (data) {
+                        //결제 진행시 에러가 발생하면 수행됩니다.
+                        console.log(data);
+                    }).cancel(function (data) {
+                        //결제가 취소되면 수행됩니다.
+                        console.log(data);
+                    }).ready(function (data) {
+                        // 가상계좌 입금 계좌번호가 발급되면 호출되는 함수입니다.
+                        console.log(data);
+                    }).confirm(function (data) {
+                        //결제가 실행되기 전에 수행되며, 주로 재고를 확인하는 로직이 들어갑니다.
+                        //주의 - 카드 수기결제일 경우 이 부분이 실행되지 않습니다.
+                      console.log(data);
+                        $.ajax({
+                            type: 'POST',
+                            url: '/api/v1/payment/confirm/',
+                            data: {'order_id':order_id,'receipt_id':data['receipt_id']},
+                            async: false,
+                            success: function (data) {
+                              console.log(data);
+                              enable = true;
+                            },
+                            error: function(error){
+                              console.log(error);
+                              enable = false
+                            }
+                        });
+                        if (enable) {
+                            BootPay.transactionConfirm(data); // 조건이 맞으면 승인 처리를 한다. 결제 처리!
+                        } else {
+                            BootPay.removePaymentWindow(); // 조건이 맞지 않으면 결제 창을 닫고 결제를 승인하지 않는다.
+                        }
+                    }).close(function (data) {
+                        // 결제창이 닫힐때 수행됩니다. (성공,실패,취소에 상관없이 모두 수행됨)
+                        console.log(data);
+                    }).done(function (data) { // listener
+                        // 결제가 정상적으로 완료되면 수행됩니다
+                        // 비즈니스 로직을 수행하기 전에 결제 유효성 검증을 하시길 추천합니다.
+                        $.ajax({
+                            type: 'POST',
+                            url: '/api/v1/payment/done/',
+                            data: {"receipt_id": data['receipt_id'], "order_id":data['order_id']},
+                            async: false,
+                            success: function (data) {
+                              console.log(data)
+                            },
+                            error: function(data) {
+                              console.log(data)
+                            }
+                        });
+                        console.log(data);
+                    }).error(function (e) {
+                        console.log(e);
+                    })
+                }
+            },
+            error: function(error){
+              console.log(error);
+            }
+        })
+    }
+</script>
+<button onclick="pay()">결제</button>
+​
+</body>
+</html>

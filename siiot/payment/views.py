@@ -20,6 +20,7 @@ from .Bootpay import BootpayApi
 from .loader import load_credential
 from .models import Payment, Trade, Deal, TradeErrorLog, PaymentErrorLog, Wallet
 from payment.models import Commission
+from chat.models import ChatRoom, ChatMessage
 
 # serializer
 from .serializers import (
@@ -338,13 +339,18 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
                     for deal in payment.deal_set.all():
                         # 판매 승인 모델 생성 : 각 상품 별로 판매 승인이 이루어집니다.
                         Transaction.objects.create(deal=deal, due_date=datetime.now()+timedelta(hours=12))
-
-                        # todo : 거래내역 확인 및 알림 처리
-                        # reference = UserActivityReference.objects.create(deal=deal)
-                        # activity log 생성 : seller
-                        # UserActivityLog.objects.create(user=deal.seller, status=200, reference=reference)
-                        # activity log 생성 : buyer
-                        # UserActivityLog.objects.create(user=buyer, status=100, reference=reference)
+                    chatroom, _ = ChatRoom.objects.get_or_create(seller=deal.seller, buyer=deal.buyer, deal=deal,
+                                                   product=deal.trades.first().product)
+                    ChatMessage.objects.create(message_type=1, room=chatroom, text="결제가 완료되었어요",
+                                               owner=deal.buyer)
+                    ChatMessage.objects.create(message_type=1, room=chatroom, text="마이페이지에서 승인 / 거절을 눌러주세요",
+                                               owner=deal.buyer)
+                    # todo : 거래내역 확인 및 알림 처리
+                    # reference = UserActivityReference.objects.create(deal=deal)
+                    # activity log 생성 : seller
+                    # UserActivityLog.objects.create(user=deal.seller, status=200, reference=reference)
+                    # activity log 생성 : buyer
+                    # UserActivityLog.objects.create(user=buyer, status=100, reference=reference)
                     return Response(status.HTTP_200_OK)
         else:
             # payment : 결제 승인 실패
