@@ -1,10 +1,6 @@
 from datetime import timedelta, datetime
 
-from django.core.validators import MinValueValidator, MaxValueValidator, FileExtensionValidator
 from django.db import models
-from django.conf import settings
-from django.db.models import Sum
-
 from core.utils import get_wallet_scheduled_date
 from mypage.models import Address
 from payment.models import Deal, Trade, Wallet
@@ -114,6 +110,20 @@ class TransactionPartialCancelLog(models.Model):
         super(TransactionPartialCancelLog, self).save(*args, **kwargs)
 
 
+class DeliveryCode(models.Model):
+    code = models.CharField(max_length=10)
+    name = models.CharField(max_length=50)
+    order = models.PositiveIntegerField(unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = '택배사 관리'
+        verbose_name_plural = '택배사 관리'
+
+    def __str__(self):
+        return "[{}] {}".format(self.code, self.name)
+
 class Delivery(models.Model):
     """
     배송 관련 모델입니다. 판매 승인시 생성되며, 운송장 번호를 입력받는 모델입니다.
@@ -158,9 +168,9 @@ class Delivery(models.Model):
         ('70', 'LOTOS CORPORATION'), ('71', 'IK물류'), ('72', '성훈물류'), ('73', 'CR로지텍'),
         ('74', '용마로지스'), ('75', '원더스퀵'), ('76', '대ress'), ('78', '2FastExpress'),
         ('99', '롯데택배 해외특송')
-    ]  # 택배사코드
+    ]  # 택배사코드 [DEPRECATED]
 
-    deal = models.OneToOneField(Deal, related_name='dealivery', on_delete=models.CASCADE,
+    deal = models.OneToOneField(Deal, related_name='delivery', on_delete=models.CASCADE,
                                 help_text='판매승인 이후 생성되는 운송장 입력 모델입니다.')
 
     memo = models.CharField(max_length=100, null=True, blank=True, verbose_name='배송메모')
@@ -170,23 +180,15 @@ class Delivery(models.Model):
     address = models.ForeignKey(Address, on_delete=models.SET_NULL, null=True, related_name='delivery')
 
     state = models.IntegerField(choices=states, default=1)
-    code = models.TextField(choices=codes, null=True, blank=True, verbose_name='택배사코드')
+    code = models.ForeignKey(DeliveryCode, on_delete=models.SET_NULL, related_name='delivery', null=True, blank=True, verbose_name='택배사코드')
     number = models.CharField(max_length=100, null=True, blank=True, verbose_name='운송장번호')
 
     # 운송장 번호 입력 시간 : 이 시간을 기준으로 5일 이후 자동으로 deal 의 거래 완료 처리
     number_created_time = models.DateTimeField(null=True, blank=True, help_text="운송장 번호 입력 시간")
 
-    # @property
-    #     # def address_str(self):
-    #     #     """
-    #     #     deal.buyer.address의 property 를 사용하여 string 형태로 return 합니다.
-    #     #     :return:
-    #     #     """
-    #     #     buyer = self.deal.buyer
-    #     #     if not hasattr(buyer, 'address'):
-    #     #         return None
-    #     #     return buyer.address.address
-
+    class Meta:
+        verbose_name = '배송(운송장번호) 관리'
+        verbose_name_plural = '배송(운송장번호) 관리'
 
 class DeliveryMemo(models.Model):
     memo = models.CharField(max_length=200)

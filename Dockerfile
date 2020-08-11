@@ -63,10 +63,10 @@ RUN apt-get -y install nginx
 RUN apt-get -y install supervisor
 
 # make folder
-COPY . /mondeique_siiot
 WORKDIR /mondeique_siiot
 
-# requirements install 
+# requirements install
+COPY requirements.txt /mondeique_siiot
 RUN pip install -r requirements.txt
 
 # mysqlclient install
@@ -74,6 +74,7 @@ RUN apt-get install -y mariadb-client
 RUN apt-get install -y python3-dev default-libmysqlclient-dev gcc
 RUN pip install mysqlclient==1.4.4
 
+COPY . /mondeique_siiot
 # sort out permissions
 RUN chown -R www-data:www-data /mondeique_siiot
 

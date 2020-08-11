@@ -8,7 +8,7 @@ from mypage.models import Address
 from mypage.serializers import SimpleUserInfoSerializer
 from payment.models import Deal
 from products.models import Product
-from transaction.models import Transaction, Delivery
+from transaction.models import Transaction, Delivery, DeliveryCode
 
 
 class SimpleTransactionProductInfoSerializer(serializers.ModelSerializer):
@@ -168,3 +168,29 @@ class BuyerTransactionDetailSerializer(TransactionDetailSerializer):
         seller = self.deal.seller
         serializer = SimpleUserInfoSerializer(seller)
         return serializer.data
+
+
+class DeliveryWriteSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Delivery
+        fields = ['code', 'number']
+
+    def update(self, instance, validated_data):
+        delivery = super(DeliveryWriteSerializer, self).update(instance, validated_data)
+        delivery.number_created_time = datetime.datetime.now()
+        delivery.state = 2
+        delivery.save()
+
+        transaction_obj = self.context.get('transaction_obj', None)
+        transaction_obj.status = 3
+        transaction_obj.save()
+
+        return delivery
+
+
+class DeliveryCodeListSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = DeliveryCode
+        fields = ['id', 'name']

@@ -14,34 +14,18 @@ class TradeAdmin(admin.ModelAdmin):
     list_display = ['pk', 'product', 'deal', 'status', 'created_at', 'updated_at']
     list_filter = ('status',)
 
-    # def payment(self, obj):
-    #     if obj.deal:
-    #         if obj.deal.payment:
-    #             return mark_safe('<a href={}>{}</a>'.format(
-    #                 reverse("admin:payment_payment_change", args=(obj.deal.payment.pk,)),
-    #                 obj.deal.payment
-    #             ))
-    #     return '-'
 
 
 class DealAdmin(admin.ModelAdmin):
-    list_display = ['pk', 'buyer', 'seller', 'transaction_completed_date',
+    list_display = ['pk', 'buyer', 'seller', "transaction_info", 'transaction_completed_date',
                     'total', 'remain', 'status', 'is_settled']
     list_filter = ['status', 'is_settled']
 
-    # def delivery_link(self, obj):
-    #     return mark_safe('<a href={}>{}</a>'.format(
-    #         reverse("admin:payment_delivery_change", args=(obj.transaction.pk,)),
-    #         obj.transaction.get_state_display()
-    #     ))
-    #
-    # def payment_link(self, obj):
-    #     if obj.payment:
-    #         return mark_safe('<a href={}>{}</a>'.format(
-    #             reverse("admin:payment_payment_change", args=(obj.payment.pk,)),
-    #             obj.payment
-    #         ))
-    #     return '-'
+    def transaction_info(self, obj):
+        if hasattr(obj, 'transaction'):
+            return obj.transaction
+        return None
+
 
 
 class PaymentAdmin(admin.ModelAdmin):

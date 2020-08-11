@@ -88,6 +88,9 @@ class Deal(models.Model):  # 돈 관련 (스토어 별로) / bootpay 에서 확�
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return "({}) [판:{}, 구:{}] 상품명 {}".format(self.id, self.seller, self.buyer, self.payment.name)
+
 
 class Trade(models.Model):  # 카트, 상품 하나하나당 아이디 1개씩
     """
