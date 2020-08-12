@@ -124,6 +124,7 @@ class DeliveryCode(models.Model):
     def __str__(self):
         return "[{}] {}".format(self.code, self.name)
 
+
 class Delivery(models.Model):
     """
     배송 관련 모델입니다. 판매 승인시 생성되며, 운송장 번호를 입력받는 모델입니다.
@@ -189,6 +190,7 @@ class Delivery(models.Model):
     class Meta:
         verbose_name = '배송(운송장번호) 관리'
         verbose_name_plural = '배송(운송장번호) 관리'
+
 
 class DeliveryMemo(models.Model):
     memo = models.CharField(max_length=200)

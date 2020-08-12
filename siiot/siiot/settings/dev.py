@@ -49,6 +49,13 @@ CORS_ORIGIN_WHITELIST = (
     'http://localhost:8000',
     'http://127.0.0.1:8000',
 )
+
+# DJANGO-CRONTAB
+CRONTAB_DJANGO_SETTINGS_MODULE = 'siiot.settings.dev'
+CRONJOBS = [
+    ('*/1 * * * *', 'payment.cron.check_approval_after_payment', '>> file.log')
+]
+
 # # logging
 # LOGGING = {
 #     'version': 1,
