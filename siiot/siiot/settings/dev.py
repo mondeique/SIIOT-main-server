@@ -53,7 +53,8 @@ CORS_ORIGIN_WHITELIST = (
 # DJANGO-CRONTAB
 CRONTAB_DJANGO_SETTINGS_MODULE = 'siiot.settings.dev'
 CRONJOBS = [
-    ('*/1 * * * *', 'payment.cron.check_approval_after_payment', '>> file.log')
+    ('*/1 * * * *', 'payment.cron.check_approval_after_payment', '>> approval_after_payment.log'),
+    ('*/1 * * * *', 'transaction.cron.check_confirm_after_deliver', '>> confirm_after_deliver.log')
 ]
 
 # # logging

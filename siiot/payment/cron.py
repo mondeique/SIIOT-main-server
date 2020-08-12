@@ -25,7 +25,6 @@ def get_access_token():
 
 def check_approval_after_payment():
     queryset = Transaction.objects.filter(status=1)
-    # TODO: Transaction field 를 계속해서 변경하는 method or method below..
     for transaction_obj in queryset.iterator():
         if time_diff_in_s(transaction_obj.created_at, datetime.now()) > (3600 * 12):
             print("AUTO PAYMENT CANCEL : %d".format(transaction_obj.id))
