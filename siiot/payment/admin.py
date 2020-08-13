@@ -16,9 +16,23 @@ class TradeAdmin(admin.ModelAdmin):
 
 
 class DealAdmin(admin.ModelAdmin):
-    list_display = ['pk', 'buyer', 'seller', "transaction_info", 'transaction_completed_date',
+    list_display = ['pk', 'buyer', 'seller', 'trade', 'product', 'pay_product', "transaction_info", 'transaction_completed_date',
                     'total', 'remain', 'status', 'is_settled']
     list_filter = ['status', 'is_settled']
+
+    def trade(self, obj):
+        if obj.trades.exists():
+            return obj.trades.first()
+        return None
+
+    def pay_product(self, obj):
+        payment = obj.payment
+        return payment.name
+
+    def product(self, obj):
+        if obj.trades.exists():
+            return obj.trades.first().product
+        return None
 
     def transaction_info(self, obj):
         if hasattr(obj, 'transaction'):
