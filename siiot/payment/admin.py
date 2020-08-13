@@ -15,7 +15,6 @@ class TradeAdmin(admin.ModelAdmin):
     list_filter = ('status',)
 
 
-
 class DealAdmin(admin.ModelAdmin):
     list_display = ['pk', 'buyer', 'seller', "transaction_info", 'transaction_completed_date',
                     'total', 'remain', 'status', 'is_settled']
@@ -25,7 +24,6 @@ class DealAdmin(admin.ModelAdmin):
         if hasattr(obj, 'transaction'):
             return obj.transaction
         return None
-
 
 
 class PaymentAdmin(admin.ModelAdmin):

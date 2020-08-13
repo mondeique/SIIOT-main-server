@@ -133,7 +133,9 @@ THIRD_APPS = [
     # selenium
     'selenium',
 
-    'crispy_forms'
+    'crispy_forms',
+
+    'push_notifications'
 ]
 
 INSTALLED_APPS += SECONDS_APPS + THIRD_APPS
@@ -275,17 +277,15 @@ CKEDITOR_CONFIGS = {
 
 
 ########## FCM DJANGO CONFIGURATION
-FCM_DJANGO_SETTINGS = {
-        "APP_VERBOSE_NAME": "siiot",
-         # default: _('FCM Django')
-        "FCM_SERVER_KEY": load_credential("FCM_SERVER_KEY", ""),
-         # true if you want to have only one active device per registered user at a time
-         # default: False
-        "ONE_DEVICE_PER_USER": False,
-         # devices to which notifications cannot be sent,
-         # are deleted upon receiving error response from FCM
-         # default: False
-        "DELETE_INACTIVE_DEVICES": True,
+PUSH_NOTIFICATIONS_SETTINGS = {
+        "FCM_API_KEY": "[your api key]",
+        "GCM_API_KEY": "[your api key]",
+        "APNS_CERTIFICATE": "/path/to/your/certificate.pem",
+        "APNS_TOPIC": "com.example.push_test",
+        "WNS_PACKAGE_SECURITY_ID": "[your package security id, e.g: 'ms-app://e-3-4-6234...']",
+        "WNS_SECRET_KEY": "[your app secret key, e.g.: 'KDiejnLKDUWodsjmewuSZkk']",
+        "WP_PRIVATE_KEY": "/path/to/your/private.pem",
+        "WP_CLAIMS": {'sub': "mailto: development@example.com"}
 }
 ########## FCM DJANGO CONFIGURATION
 

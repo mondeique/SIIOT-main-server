@@ -117,12 +117,12 @@ class TransactionDetailSerializer(serializers.ModelSerializer):  # 공용
         return serializer.data
 
     def get_address(self, obj):
-        address = self.deal.dealivery.address
+        address = self.deal.delivery.address
         serializer = SimpleTransactionAddressSerializer(address)
         return serializer.data
 
     def get_transport(self, obj):
-        delivery = self.deal.dealivery
+        delivery = self.deal.delivery
         if not delivery.number:
             return None
         serializer = SimpleTransactionTransportSerializer(delivery)
