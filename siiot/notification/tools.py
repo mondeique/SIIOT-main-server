@@ -25,8 +25,8 @@ def _push_android(list_user, notification):
         serializer_data = None
 
     if serializer_data:
-        from notification.models import SIIOTGCMDevice
-        device = SIIOTGCMDevice.objects.get(user=list_user[0])
+        from push_notifications.models import GCMDevice
+        device = GCMDevice.objects.get(user=list_user[0])
         device.send_message(notification)
     # if serializer_data:
         # for sliced_endpoints in batch(endpoints, 100):
@@ -85,7 +85,6 @@ def _push_ios(endpoints, notification, badge=1):
 
 def send_push_async(list_user, notification, extras=None, reserved_notification=None):
     from notification.models import NotificationUserLog
-    from notification.models import SIIOTGCMDevice
     """
     1. notification model 을 생성합니다. (Notification Type 을 활용합니다.) - on_xxx 방식의 함수에서 요청
     title, content, image, link, is_readable, icon, link, big_image 등등 
