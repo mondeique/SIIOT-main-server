@@ -7,6 +7,7 @@ from rest_framework.authtoken.models import Token
 from django.utils.translation import ugettext_lazy as _
 
 from accounts.utils import create_token
+from push_notifications.models import GCMDevice
 
 
 class SignupSerializer(serializers.ModelSerializer):
@@ -36,6 +37,7 @@ class SignupSerializer(serializers.ModelSerializer):
         user.save()
         # 유저 생성될 때 profile instance 생성.
         Profile.objects.get_or_create(user=user)
+        # 유저 생성될 떄 GCMDevice instance 생성
         return user
 
     def update(self, instance, validated_data):
@@ -174,3 +176,12 @@ class UserInfoSerializer(serializers.ModelSerializer):
     def get_token(self, user):
         token = create_token(Token, user)
         return token.key
+
+
+class GCMCreateSerializer(serializers.ModelSerializer):
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault)
+    cloud_message_type = serializers.CharField(default='FCM')
+
+    class Meta:
+        model = GCMDevice
+        fields = ['user', 'registration_id', 'cloud_message_type']

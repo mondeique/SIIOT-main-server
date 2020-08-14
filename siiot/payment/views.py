@@ -16,6 +16,7 @@ from chat.models import ChatRoom
 from transaction.models import Delivery, Transaction
 from products.models import Product, ProductStatus
 from .Bootpay import BootpayApi
+from notification.types import CheckSellConfirmNotice
 # model
 from .loader import load_credential
 from .models import Payment, Trade, Deal, TradeErrorLog, PaymentErrorLog, Wallet
@@ -290,6 +291,7 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         * https://docs.bootpay.co.kr/deep/submit 해당 링크를 보고 서버사이드 결제승인으로 바꿀 필요성 있음
         * https://github.com/bootpay/server_python/blob/master/lib/BootpayApi.py 맨 밑줄
         """
+        global transaction
         receipt_id = request.data.get('receipt_id', None)
         order_id = request.data.get('order_id', None)
         if not (receipt_id or order_id):
@@ -338,14 +340,14 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
                     for deal in payment.deal_set.all():
                         # 판매 승인 모델 생성 : 각 상품 별로 판매 승인이 이루어집니다.
-                        Transaction.objects.create(deal=deal, due_date=datetime.now()+timedelta(hours=12))
+                        transaction, _ = Transaction.objects.create(deal=deal, due_date=datetime.now()+timedelta(hours=12))
                     chatroom, _ = ChatRoom.objects.get_or_create(seller=deal.seller, buyer=deal.buyer, deal=deal,
                                                    product=deal.trades.first().product)
                     ChatMessage.objects.create(message_type=1, room=chatroom, text="결제가 완료되었어요",
                                                owner=deal.buyer)
                     ChatMessage.objects.create(message_type=1, room=chatroom, text="마이페이지에서 승인 / 거절을 눌러주세요",
                                                owner=deal.buyer)
-                    # todo : 거래내역 확인 및 알림 처리
+                    CheckSellConfirmNotice(transaction=transaction, list_user=[request.user]).send()
                     # reference = UserActivityReference.objects.create(deal=deal)
                     # activity log 생성 : seller
                     # UserActivityLog.objects.create(user=deal.seller, status=200, reference=reference)

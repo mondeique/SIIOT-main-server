@@ -3,7 +3,7 @@ import json
 import random
 import math
 import operator
-from datetime import datetime, timezone
+from datetime import datetime
 
 from core.aws.clients import lambda_client
 from notification.models import Notification, NotificationUserLog
@@ -83,7 +83,7 @@ def _push_ios(endpoints, notification, badge=1):
                                  InvocationType='Event')
 
 
-def send_push_async(list_user, notification, extras=None, reserved_notification=None):
+def send_push_async(list_user, notification, reserved_notification=None):
     from notification.models import NotificationUserLog
     """
     1. notification model 을 생성합니다. (Notification Type 을 활용합니다.) - on_xxx 방식의 함수에서 요청
@@ -100,12 +100,11 @@ def send_push_async(list_user, notification, extras=None, reserved_notification=
     if notification.is_readable:
         deleted_at = None
     else:
-        deleted_at = timezone.now()
+        deleted_at = datetime.now()
 
     for user in list_user:
         bulk_data.append(
-            NotificationUserLog(user=user, notification=notification, deleted_at=deleted_at,
-                                extras=extras))
+            NotificationUserLog(user=user, notification=notification, deleted_at=deleted_at))
         user_ids.append(user.id)
 
     NotificationUserLog.objects.bulk_create(bulk_data)

@@ -53,9 +53,6 @@ class BaseNotificationType(object):
     def link(self):
         return ""
 
-    def extras(self):
-        return {}
-
     def big_image(self):
         return None
 
@@ -78,8 +75,7 @@ class BaseNotificationType(object):
 
     def send(self):
         from notification.tools import send_push_async
-        send_push_async(list_user=self.list_user, notification=self.get_notification(),
-                        extras=self.extras())
+        send_push_async(list_user=self.list_user, notification=self.get_notification())
 
 
 @NotificationType
@@ -281,6 +277,58 @@ class BuyerConfirmNotice(BaseNotificationType):
 
     def content(self):
         return "판매한 {} 상품이 구매자에게 잘 도착했습니다!".format(self.transaction.deal.trades.first().product.name)
+
+    def image(self):
+        return ""
+
+    def link(self):
+        return ""
+
+    def target(self):
+        return self.list_user[0].id
+
+
+@NotificationType
+class SellerCancelNotice(BaseNotificationType):
+    action = 207
+    is_readable = True
+    is_notifiable = True
+
+    def __init__(self, transaction, list_user):
+        self.transaction = transaction
+        super(SellerCancelNotice, self).__init__(list_user)
+
+    def title(self):
+        return "seller_cancel"
+
+    def content(self):
+        return "판매자가 {} 상품 거래를 취소했습니다.".format(self.transaction.deal.trades.first().product.name)
+
+    def image(self):
+        return ""
+
+    def link(self):
+        return ""
+
+    def target(self):
+        return self.list_user[0].id
+
+
+@NotificationType
+class BuyerCancelNotice(BaseNotificationType):
+    action = 208
+    is_readable = True
+    is_notifiable = True
+
+    def __init__(self, transaction, list_user):
+        self.transaction = transaction
+        super(BuyerCancelNotice, self).__init__(list_user)
+
+    def title(self):
+        return "buyer_cancel"
+
+    def content(self):
+        return "구매자가 {} 상품 거래를 취소했습니다.".format(self.transaction.deal.trades.first().product.name)
 
     def image(self):
         return ""

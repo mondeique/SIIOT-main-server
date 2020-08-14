@@ -14,6 +14,7 @@ from payment.loader import load_credential
 from payment.models import Deal
 from payment.serializers import PaymentCancelSerialzier
 from transaction.serializers import DeliveryWriteSerializer, DeliveryCodeListSerializer
+from notification.types import *
 
 
 class TransactionViewSet(viewsets.GenericViewSet):
@@ -54,7 +55,6 @@ class TransactionViewSet(viewsets.GenericViewSet):
         """
         구매자, 판매자의 거래취소 입니다. 각각 reason을 받아야 합니다.
         취소 후에 판매 중으로 상태를 변경합니다.
-        TODO : post save로 알림 내역 저장. 알림 내역 저장하면서 푸쉬 알림
         """
 
         user = request.user
@@ -89,6 +89,7 @@ class TransactionViewSet(viewsets.GenericViewSet):
             transaction_obj.save()
             self.cancel_requester = user
             self.cancel_reason = '판매자 요청으로 인한 거래취소'
+            SellerCancelNotice(transaction=transaction_obj, list_user=[self.deal.buyer]).send()
 
         if self.deal.buyer == user:
             if not buyer_cancel_reason:
@@ -98,6 +99,7 @@ class TransactionViewSet(viewsets.GenericViewSet):
             transaction_obj.save()
             self.cancel_requester = user
             self.cancel_reason = '구매자 요청으로 인한 거래취소'
+            BuyerCancelNotice(transaction=transaction_obj, list_user=[self.deal.seller]).send()
 
         transaction_obj.status = -2
         transaction_obj.save()
@@ -158,6 +160,8 @@ class TransactionViewSet(viewsets.GenericViewSet):
         self.payment = self.deal.payment
         self.receipt_id = self.payment.receipt_id
 
+        SellerRejectNotice(transaction=transaction_obj, list_user=[self.deal.buyer]).send()
+
         self._payment_cancel_status()
 
         return Response({'detail': 'canceled'}, status=status.HTTP_200_OK)
@@ -207,6 +211,8 @@ class TransactionViewSet(viewsets.GenericViewSet):
         transaction_obj.status = 2
         transaction_obj.save()
 
+        SellerConfirmNotice(transaction=transaction_obj, list_user=[deal.buyer]).send()
+
         return Response(status=status.HTTP_201_CREATED)
 
     @transaction.atomic
@@ -226,6 +232,8 @@ class TransactionViewSet(viewsets.GenericViewSet):
         transaction_obj.confirm_transaction = True
         transaction_obj.status = 5
         transaction_obj.save()  # create wallet
+
+        CheckBuyerConfirmNotice(transaction=transaction_obj, list_user=[deal.seller]).send()
 
         return Response(status=status.HTTP_200_OK)
 
@@ -274,6 +282,7 @@ class TransactionViewSet(viewsets.GenericViewSet):
         serializer = DeliveryWriteSerializer(delivery, data=data, context=serializer_context)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        DeliverNumNotice(transaction=transaction_obj, list_user=[deal.buyer]).send()
         return Response(status=status.HTTP_201_CREATED)
 
     def partial_cancel(self, request, *args, **kwargs):
