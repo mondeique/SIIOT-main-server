@@ -214,7 +214,6 @@ class TransactionViewSet(viewsets.GenericViewSet):
     def confirm(self, request, *args, **kwargs):
         """
         구매자 구매 확정 : 구매 확정시 정산 내역에 정산 예정일이 업데이트 됩니다.
-        # TODO : cron 자동 구매확정
         """
         user = request.user
         transaction_obj = self.get_object()

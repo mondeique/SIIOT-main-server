@@ -2,10 +2,27 @@ from django.conf import settings
 from django.db import models
 import jsonfield
 
+from push_notifications.models import GCMDevice
+
 
 def get_choices():
     from notification.types import action_types
     return action_types
+
+
+class SIIOTGCMDevice(GCMDevice):
+    """
+    SIIOTGCMDevice라는 모델을 생성했습니다. django-push-notifications에서는 model에 user가 물려있지 않아서 새롭게 정의했습니다.
+    """
+    DEVICES = [
+        (1, 'ANDROID'),
+        (2, 'IOS'),
+        (3, 'CHROME'),
+    ]
+
+    device_type = models.IntegerField(choices=DEVICES)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, blank=True, null=True)
+    endpoint_arn = models.CharField(max_length=150, blank=True, help_text='aws sns message publish용 arn입니다.')
 
 
 class Notification(models.Model):
