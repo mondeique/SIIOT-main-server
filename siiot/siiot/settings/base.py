@@ -102,6 +102,7 @@ SECONDS_APPS = [
     'transaction',
     'landing',
     'chat',
+    'notification'
     # 'user_activity',
     # 'test'
 ]

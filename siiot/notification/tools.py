@@ -3,6 +3,7 @@ import json
 import random
 import math
 import operator
+from datetime import datetime
 
 from core.aws.clients import lambda_client
 from notification.models import Notification, NotificationUserLog
@@ -16,7 +17,7 @@ def batch(iterable, n=1):
         yield iterable[ndx:min(ndx + n, l)]
 
 
-def _push_android(endpoints, notification):
+def _push_android(list_user, notification):
     serializers = NotificationSerializer(notification)
     try:
         serializer_data = serializers.data
@@ -24,23 +25,27 @@ def _push_android(endpoints, notification):
         serializer_data = None
 
     if serializer_data:
-        for sliced_endpoints in batch(endpoints, 100):
-            data = {
-                "action": notification.action,
-                "param": serializer_data,
-                "is_notifiable": notification.is_notifiable,
-            }
-            gcm_data = {
-                "data": data,
-                "priority": "high",
-            }
-            payload = json.dumps({
-                "endpoints": sliced_endpoints,
-                "gcm_data": gcm_data,
-            })
-            lambda_client.invoke(FunctionName="NotificationSender",
-                                 Payload=payload,
-                                 InvocationType='Event')
+        from push_notifications.models import GCMDevice
+        device = GCMDevice.objects.get(user=list_user[0])
+        device.send_message(notification)
+    # if serializer_data:
+        # for sliced_endpoints in batch(endpoints, 100):
+        #     data = {
+        #         "action": notification.action,
+        #         "param": serializer_data,
+        #         "is_notifiable": notification.is_notifiable,
+        #     }
+        #     gcm_data = {
+        #         "data": data,
+        #         "priority": "high",
+        #     }
+        #     payload = json.dumps({
+        #         "endpoints": sliced_endpoints,
+        #         "gcm_data": gcm_data,
+        #     })
+        #     lambda_client.invoke(FunctionName="NotificationSender",
+        #                          Payload=payload,
+        #                          InvocationType='Event')
 
 
 def _push_ios(endpoints, notification, badge=1):
@@ -78,9 +83,8 @@ def _push_ios(endpoints, notification, badge=1):
                                  InvocationType='Event')
 
 
-def send_push_async(list_user, notification, extras=None, reserved_notification=None):
+def send_push_async(list_user, notification, reserved_notification=None):
     from notification.models import NotificationUserLog
-    from push_notifications.models import GCMDevice
     """
     1. notification model 을 생성합니다. (Notification Type 을 활용합니다.) - on_xxx 방식의 함수에서 요청
     title, content, image, link, is_readable, icon, link, big_image 등등 
@@ -96,21 +100,88 @@ def send_push_async(list_user, notification, extras=None, reserved_notification=
     if notification.is_readable:
         deleted_at = None
     else:
-        deleted_at = timezone.now()
+        deleted_at = datetime.now()
 
     for user in list_user:
         bulk_data.append(
-            NotificationUserLog(user=user, notification=notification, deleted_at=deleted_at,
-                                extras=extras))
+            NotificationUserLog(user=user, notification=notification, deleted_at=deleted_at))
         user_ids.append(user.id)
 
     NotificationUserLog.objects.bulk_create(bulk_data)
-    device_queryset = GCMDevice.objects.filter(user__in=user_ids)
+    # device_queryset = SIIOTGCMDevice.objects.filter(user__in=user_ids)
 
-    badge = 1
-    if len(list_user) == 1:
-        badge = NotificationUserLog.objects.filter(user=list_user[0], read_at=None,
-                                                   deleted_at=None).distinct().count()
+    # badge = 1
+    # if len(list_user) == 1:
+    #     badge = NotificationUserLog.objects.filter(user=list_user[0], read_at=None,
+    #                                                deleted_at=None).distinct().count()
 
-    android_endpoints = device_queryset.filter(device_type=1).values_list('endpoint_arn', flat=True)
-    _push_android(android_endpoints, notification)
+    # android_endpoints = device_queryset.filter(device_type=1).values_list('endpoint_arn', flat=True)
+    _push_android(list_user, notification)
+
+    # ios_endpoints = device_queryset.filter(device_type=2).values_list('endpoint_arn', flat=True)
+    # _push_ios(ios_endpoints, notification, badge=badge)
+
+
+# class NotificationHelper(object):
+#     """
+#     action : action값(정수), notifications.models.Notification 참고
+#     target : push 대상 user
+#     """
+#
+#     # ACTION 번호 순서로 정리
+#     # V1 NOTIFICATION START ============================================================================================
+#     def on_student_notice_create(self, notice):
+#         # ACTION 101
+#         from accounts.models import User
+#         StudentNotice(list_user=User.objects.filter(student_profile__isnull=False),
+#                       notice=notice).send()
+#
+#     def on_student_event_create(self, event_notice):
+#         # ACTION 102
+#         from accounts.models import User
+#         StudentEventNotice(list_user=User.objects.filter(student_profile__isnull=False),
+#                            event_notice=event_notice).send()
+#
+#     def on_answer_start(self, question, solver):
+#         # ACTION 200
+#         locale = None
+#         if question.subject:
+#             locale = question.subject.locale
+#         else:
+#             locale = question.book_chapters.first().chapter.book.language_code
+#         activate(locale)
+#         StudentMatchingTeacher(list_user=[question.author], question=question, teacher=solver)
+#         self.on_solve_start(question)  # Will DEPRECATED
+#
+#     def on_answer(self, answer):
+#         # ACTION 201
+#         locale = None
+#         if answer.question.subject:
+#             locale = answer.question.subject.locale
+#         else:
+#             locale = answer.question.book_chapters.first().chapter.book.language_code
+#         question = answer.question
+#         activate(locale)
+#         StudentNewAnswer(list_user=[question.author], question=question, answer=answer).send()
+#
+#     def on_6_hours_before_auto_accept(self, queryset):
+#         # ACTION 202 accept_question_push_every_hour
+#         for question in queryset:
+#             if question.subject:
+#                 locale = question.subject.locale
+#             else:
+#                 locale = question.book_chapters.first().chapter.book.language_code
+#             activate(locale)
+#             StudentRequestAcceptAnswer(list_user=[question.author], question=question).send()
+#
+#     def on_1_hours_before_auto_accept(self, queryset):
+#         # ACTION 202 accept_question_push_every_hour
+#         for question in queryset:
+#             locale = None
+#             if question.subject:
+#                 locale = question.subject.locale
+#             else:
+#                 locale = question.book_chapters.first().chapter.book.language_code
+#             activate(locale)
+#             StudentRequestAcceptAnswerOneHour(list_user=[question.author], question=question).send()
+#     # V1 NOTIFICATION END ==============================================================================================

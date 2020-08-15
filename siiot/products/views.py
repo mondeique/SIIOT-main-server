@@ -36,6 +36,7 @@ from products.supplymentary.serializers import ShoppingMallDemandSerializer
 from products.utils import crawl_request, check_product_url
 from core.pagination import SiiotPagination
 from user_activity.models import RecentlyViewedProduct, RecentlySearchedKeyword
+from notification.types import *
 
 
 class ProductViewSet(mixins.CreateModelMixin,
@@ -443,6 +444,7 @@ class ProductViewSet(mixins.CreateModelMixin,
             else:
                 like.is_liked = True
             like.save()
+        ProductLikeNotice(product=product, list_user=[user]).send()
         return Response(status=status.HTTP_206_PARTIAL_CONTENT)
 
     @action(methods=['get'], detail=False, permission_classes=[IsAuthenticated, ])

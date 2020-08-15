@@ -16,7 +16,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 # Create your views here.
 from accounts.models import User, PhoneConfirm, Profile
 from accounts.serializers import LoginSerializer, SignupSerializer, CredentialException, NicknameSerializer, \
-    ResetPasswordSerializer, UserInfoSerializer, ProfileSerializer
+    ResetPasswordSerializer, UserInfoSerializer, ProfileSerializer, GCMCreateSerializer
 from accounts.sms.signature import simple_send
 from accounts.sms.utils import SMSV2Manager, SMSManager
 from accounts.utils import create_token, set_random_nickname
@@ -39,6 +39,8 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
             serializer = UserInfoSerializer
         elif self.action == 'profile':
             return ProfileSerializer
+        elif self.action == 'gcm':
+            return GCMCreateSerializer
         else:
             serializer = super(AccountViewSet, self).get_serializer_class()
         return serializer
@@ -60,6 +62,20 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         serializer = self.get_serializer(user)
 
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(methods=['put'], detail=False, permission_classes=IsAuthenticated)
+    def gcm(self, request):
+        """
+        signup을 하거나 login 후의 받은 token과 reg_id를 함꼐 보내 User에 얽혀있는 registeration_id 를 update 합니다.
+        api : PUT accounts/v1/gcm/
+        :param request: header token
+        data = { "registration_id" : String }
+        :return: status
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exceptions=True)
+        serializer.save()
+        return Response(status=status.HTTP_201_CREATED)
 
     @action(methods=['post'], detail=False)
     def signup(self, request, *args, **kwargs):

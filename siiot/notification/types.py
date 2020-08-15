@@ -1,24 +1,14 @@
-from django.conf import settings
-from django.utils import timezone
-from django.utils.translation import ugettext_lazy as _
-
-# Notification의 choices 옵션으로 사용하기 위한 리스트
-from rest_framework.reverse import reverse
 
 action_types = []
-use_action_types = []
+# use_action_types = []
 
 # Notification Action 값으로 NotificationType모델을 접근하기 위한
 notification_types = {}
 
 """
-이 Types.py에 모든 Notification의 관한 정보가 입력되야함.
-이 정보에 대해서 접근해서 실제 Notification을 발송하는 로직은 모두 Notifications.tools에 함수로 정의함.
+이 Types.py에 모든 Notification의 관한 정보가 입력
+이 정보에 대해서 접근해서 실제 Notification을 발송하는 로직은 모두 Notifications.tools에 함수로 정의
 단, Business Logic에 의해 그 함수를 부르는 일은 각 필요에 맞는 곳에서 행해짐
-
-on_XXX함수 추가시 맨 아래 추가하고 test_models.py 에도 추가바람
-
-confluence 푸시 기획과 동기화 필수
 """
 
 
@@ -28,9 +18,9 @@ def NotificationType(_class):
     return _class
 
 
-def NotificationButtonUseType(_class):
-    use_action_types.append(_class.action)
-    return _class
+# def NotificationButtonUseType(_class):
+#     use_action_types.append(_class.action)
+#     return _class
 
 
 class BaseNotificationType(object):
@@ -61,10 +51,7 @@ class BaseNotificationType(object):
         return ""
 
     def link(self):
-        return "siiot://home/"
-
-    def extras(self):
-        return {}
+        return ""
 
     def big_image(self):
         return None
@@ -88,8 +75,7 @@ class BaseNotificationType(object):
 
     def send(self):
         from notification.tools import send_push_async
-        send_push_async(list_user=self.list_user, notification=self.get_notification(),
-                        extras=self.extras())
+        send_push_async(list_user=self.list_user, notification=self.get_notification())
 
 
 @NotificationType
@@ -178,24 +164,24 @@ class SellerConfirmNotice(BaseNotificationType):
     is_readable = True
     is_notifiable = True
 
-    def __init__(self, event_notice, list_user):
-        self.event_notice = event_notice
+    def __init__(self, transaction, list_user):
+        self.transaction = transaction
         super(SellerConfirmNotice, self).__init__(list_user)
 
     def title(self):
-        return "notification_new_event"
+        return "seller_confirm"
 
     def content(self):
-        return self.event_notice.title
+        return "결제한 {} 상품이 판매 승인 되었습니다!".format(self.transaction.deal.trades.first().product.name)
 
     def image(self):
-        return u"https://qanda-server-storage.s3.amazonaws.com/eventxhdpi.png"
+        return ""
 
     def link(self):
-        return u"qanda://event/student/{}/".format(self.event_notice.id)
+        return ""
 
     def target(self):
-        return self.event_notice.id
+        return self.list_user[0].id
 
 
 @NotificationType
@@ -204,24 +190,24 @@ class SellerRejectNotice(BaseNotificationType):
     is_readable = True
     is_notifiable = True
 
-    def __init__(self, event_notice, list_user):
-        self.event_notice = event_notice
+    def __init__(self, transaction, list_user):
+        self.transaction = transaction
         super(SellerRejectNotice, self).__init__(list_user)
 
     def title(self):
-        return "notification_new_event"
+        return "seller_reject"
 
     def content(self):
-        return self.event_notice.title
+        return "결제한 {} 상품이 판매 거절 되었습니다.".format(self.transaction.deal.trades.first().product.name)
 
     def image(self):
-        return u"https://qanda-server-storage.s3.amazonaws.com/eventxhdpi.png"
+        return ""
 
     def link(self):
-        return u"qanda://event/student/{}/".format(self.event_notice.id)
+        return ""
 
     def target(self):
-        return self.event_notice.id
+        return self.list_user[0].id
 
 
 @NotificationType
@@ -230,24 +216,24 @@ class DeliverNumNotice(BaseNotificationType):
     is_readable = True
     is_notifiable = True
 
-    def __init__(self, event_notice, list_user):
-        self.event_notice = event_notice
+    def __init__(self, transaction, list_user):
+        self.transaction = transaction
         super(DeliverNumNotice, self).__init__(list_user)
 
     def title(self):
-        return "notification_new_event"
+        return "seller_deliver"
 
     def content(self):
-        return self.event_notice.title
+        return "결제한 {} 상품의 운송장 번호가 입력되었습니다!".format(self.transaction.deal.trades.first().product.name)
 
     def image(self):
-        return u"https://qanda-server-storage.s3.amazonaws.com/eventxhdpi.png"
+        return ""
 
     def link(self):
-        return u"qanda://event/student/{}/".format(self.event_notice.id)
+        return ""
 
     def target(self):
-        return self.event_notice.id
+        return self.list_user[0].id
 
 
 @NotificationType
@@ -256,24 +242,24 @@ class CheckBuyerConfirmNotice(BaseNotificationType):
     is_readable = True
     is_notifiable = True
 
-    def __init__(self, event_notice, list_user):
-        self.event_notice = event_notice
+    def __init__(self, transaction, list_user):
+        self.transaction = transaction
         super(CheckBuyerConfirmNotice, self).__init__(list_user)
 
     def title(self):
-        return "notification_new_event"
+        return "check_buyerconfirm"
 
     def content(self):
-        return self.event_notice.title
+        return "{} 상품이 도착하였다면 구매확정버튼을 눌러주시고, 아니라면 시옷 고객센터에 문의해주세!".format(self.transaction.deal.trades.first().product.name)
 
     def image(self):
-        return u"https://qanda-server-storage.s3.amazonaws.com/eventxhdpi.png"
+        return ""
 
     def link(self):
-        return u"qanda://event/student/{}/".format(self.event_notice.id)
+        return ""
 
     def target(self):
-        return self.event_notice.id
+        return self.list_user[0].id
 
 
 @NotificationType
@@ -282,21 +268,73 @@ class BuyerConfirmNotice(BaseNotificationType):
     is_readable = True
     is_notifiable = True
 
-    def __init__(self, event_notice, list_user):
-        self.event_notice = event_notice
+    def __init__(self, transaction, list_user):
+        self.transaction = transaction
         super(BuyerConfirmNotice, self).__init__(list_user)
 
     def title(self):
-        return "notification_new_event"
+        return "buyer_confirm"
 
     def content(self):
-        return self.event_notice.title
+        return "판매한 {} 상품이 구매자에게 잘 도착했습니다!".format(self.transaction.deal.trades.first().product.name)
 
     def image(self):
-        return u"https://qanda-server-storage.s3.amazonaws.com/eventxhdpi.png"
+        return ""
 
     def link(self):
-        return u"qanda://event/student/{}/".format(self.event_notice.id)
+        return ""
 
     def target(self):
-        return self.event_notice.id
+        return self.list_user[0].id
+
+
+@NotificationType
+class SellerCancelNotice(BaseNotificationType):
+    action = 207
+    is_readable = True
+    is_notifiable = True
+
+    def __init__(self, transaction, list_user):
+        self.transaction = transaction
+        super(SellerCancelNotice, self).__init__(list_user)
+
+    def title(self):
+        return "seller_cancel"
+
+    def content(self):
+        return "판매자가 {} 상품 거래를 취소했습니다.".format(self.transaction.deal.trades.first().product.name)
+
+    def image(self):
+        return ""
+
+    def link(self):
+        return ""
+
+    def target(self):
+        return self.list_user[0].id
+
+
+@NotificationType
+class BuyerCancelNotice(BaseNotificationType):
+    action = 208
+    is_readable = True
+    is_notifiable = True
+
+    def __init__(self, transaction, list_user):
+        self.transaction = transaction
+        super(BuyerCancelNotice, self).__init__(list_user)
+
+    def title(self):
+        return "buyer_cancel"
+
+    def content(self):
+        return "구매자가 {} 상품 거래를 취소했습니다.".format(self.transaction.deal.trades.first().product.name)
+
+    def image(self):
+        return ""
+
+    def link(self):
+        return ""
+
+    def target(self):
+        return self.list_user[0].id
