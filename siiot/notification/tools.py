@@ -5,7 +5,7 @@ import math
 import operator
 from datetime import datetime
 
-from core.aws.clients import lambda_client
+# from core.aws.clients import lambda_client
 from notification.models import Notification, NotificationUserLog
 from notification.serializers import NotificationSerializer
 from notification.types import *
@@ -26,8 +26,11 @@ def _push_android(list_user, notification):
 
     if serializer_data:
         from push_notifications.models import GCMDevice
-        device = GCMDevice.objects.get(user=list_user[0])
-        device.send_message(notification)
+        device = GCMDevice.objects.get(user=list_user[0]).last()
+        print(device)
+        # TEST CODE
+        device.send_message(None,
+                            extra={"icon": notification.icon})
     # if serializer_data:
         # for sliced_endpoints in batch(endpoints, 100):
         #     data = {
@@ -48,39 +51,39 @@ def _push_android(list_user, notification):
         #                          InvocationType='Event')
 
 
-def _push_ios(endpoints, notification, badge=1):
-    serializers = NotificationSerializer(notification)
-    try:
-        serializer_data = serializers.data
-    except Exception as e:
-        serializer_data = None
-
-    if serializer_data:
-        for sliced_endpoints in batch(endpoints, 100):
-            data = {
-                "action": notification.action,
-                "param": serializer_data,
-                "is_notifiable": notification.is_notifiable,
-            }
-            gcm_data = {
-                "data": data,
-                "priority": "high",
-                "notification": {
-                    "title": notification.title.encode(encoding='UTF-8', errors='strict'),
-                    "body": notification.content.encode(encoding='UTF-8', errors='strict'),
-                    "sound": None,
-                    "badge": badge,
-                    "content_available": True,
-                    "id": 0,
-                },
-            }
-            payload = json.dumps({
-                "endpoints": sliced_endpoints,
-                "gcm_data": gcm_data,
-            })
-            lambda_client.invoke(FunctionName="NotificationSender",
-                                 Payload=payload,
-                                 InvocationType='Event')
+# def _push_ios(endpoints, notification, badge=1):
+#     serializers = NotificationSerializer(notification)
+#     try:
+#         serializer_data = serializers.data
+#     except Exception as e:
+#         serializer_data = None
+#
+#     if serializer_data:
+#         for sliced_endpoints in batch(endpoints, 100):
+#             data = {
+#                 "action": notification.action,
+#                 "param": serializer_data,
+#                 "is_notifiable": notification.is_notifiable,
+#             }
+#             gcm_data = {
+#                 "data": data,
+#                 "priority": "high",
+#                 "notification": {
+#                     "title": notification.title.encode(encoding='UTF-8', errors='strict'),
+#                     "body": notification.content.encode(encoding='UTF-8', errors='strict'),
+#                     "sound": None,
+#                     "badge": badge,
+#                     "content_available": True,
+#                     "id": 0,
+#                 },
+#             }
+#             payload = json.dumps({
+#                 "endpoints": sliced_endpoints,
+#                 "gcm_data": gcm_data,
+#             })
+#             lambda_client.invoke(FunctionName="NotificationSender",
+#                                  Payload=payload,
+#                                  InvocationType='Event')
 
 
 def send_push_async(list_user, notification, reserved_notification=None):
@@ -102,12 +105,13 @@ def send_push_async(list_user, notification, reserved_notification=None):
     else:
         deleted_at = datetime.now()
 
-    for user in list_user:
-        bulk_data.append(
-            NotificationUserLog(user=user, notification=notification, deleted_at=deleted_at))
-        user_ids.append(user.id)
-
-    NotificationUserLog.objects.bulk_create(bulk_data)
+    # for user in list_user:
+    #     bulk_data.append(
+    #         NotificationUserLog(notification=notification, deleted_at=deleted_at))
+    #     user_ids.append(user.id)
+    #
+    # NotificationUserLog.objects.bulk_create(bulk_data)
+    NotificationUserLog.objects.get_or_create(notification=notification, deleted_at=deleted_at)
     # device_queryset = SIIOTGCMDevice.objects.filter(user__in=user_ids)
 
     # badge = 1

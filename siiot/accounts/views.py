@@ -22,6 +22,8 @@ from accounts.sms.utils import SMSV2Manager, SMSManager
 from accounts.utils import create_token, set_random_nickname
 from mypage.models import DeliveryPolicy
 
+from push_notifications.models import GCMDevice
+
 
 class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
     permission_classes = [AllowAny, ]
@@ -63,17 +65,22 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @action(methods=['put'], detail=False, permission_classes=IsAuthenticated)
+    @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated,])
     def gcm(self, request):
         """
         signup을 하거나 login 후의 받은 token과 reg_id를 함꼐 보내 User에 얽혀있는 registeration_id 를 update 합니다.
-        api : PUT accounts/v1/gcm/
+        api : POST accounts/v1/gcm/
         :param request: header token
         data = { "registration_id" : String }
         :return: status
         """
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exceptions=True)
+        reg_id = request.data.get('registration_id')
+        if GCMDevice.objects.filter(registration_id=reg_id).exists():
+            reg_obj = GCMDevice.objects.get(registration_id=reg_id)
+            serializer = self.get_serializer(reg_obj, data=request.data)
+        else:
+            serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(status=status.HTTP_201_CREATED)
 
@@ -144,14 +151,18 @@ class AccountViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         serializer = UserInfoSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @action(methods=['get'], detail=False, url_name='logout')
+    @action(methods=['post'], detail=False, url_name='logout')
     def logout(self, request):
         """
         api: POST accounts/v1/logout/
-
+        data = { "registration_id" : string }
         :return: code, status
         """
         try:
+            device = GCMDevice.objects.get(user=request.user,
+                                           registration_id=request.data.get('registration_id'))
+            device.user = None
+            device.save()
             request.user.auth_token.delete()
         except (AttributeError, ObjectDoesNotExist):
             key = request.headers['Authorization']
@@ -321,19 +332,19 @@ class SMSViewSet(viewsets.GenericViewSet):
         phone = data.get('phone')
 
         if not phone:
-            return Response("No phone number", status=status.HTTP_400_BAD_REQUEST)
+            return Response({'temp_key': ""}, status=status.HTTP_400_BAD_REQUEST)
 
         if User.objects.filter(phone=phone, is_banned=True).exists():
-            return Response("User is banned", status=status.HTTP_400_BAD_REQUEST)  # banned user
+            return Response({'temp_key': ""}, status=status.HTTP_400_BAD_REQUEST)  # banned user
         elif not User.objects.filter(phone=phone, is_active=True).exists():
-            return Response("User does not exists", status=status.HTTP_204_NO_CONTENT)  # no user
+            return Response({'temp_key': ""}, status=status.HTTP_204_NO_CONTENT)  # no user
 
         # sms_manager = SMSManager()
         sms_manager = SMSV2Manager()
         sms_manager.set_content()
         sms_manager.create_instance(phone=phone, kind=PhoneConfirm.RESET_PASSWORD)
         if not sms_manager.send_sms(phone=phone):
-            return Response("Failed send sms", status=status.HTTP_410_GONE)
+            return Response({'temp_key': ""}, status=status.HTTP_410_GONE)
 
         return Response({'temp_key': sms_manager.temp_key}, status=status.HTTP_200_OK)
 

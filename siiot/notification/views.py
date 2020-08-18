@@ -6,6 +6,8 @@ from rest_framework.response import Response
 from notification.models import NotificationUserLog
 from notification.serializers import NotificationListSerializer
 
+from core.pagination import SiiotPagination
+
 
 class NotificationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
     queryset = NotificationUserLog.objects.all()
@@ -18,7 +20,13 @@ class NotificationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
         api : GET api/v1/notification/
         * header token
         """
+        paginator = SiiotPagination()
         user = request.user
         queryset = self.get_queryset().filter(notification__target=user)
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        like_queryset = queryset.filter(notification__action=101)
+        # like_queryset.
+        other_queryset = queryset.exclude(notification__action=101)
+
+        page = paginator.paginate_queryset(queryset, request)
+        serializer = self.get_serializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)

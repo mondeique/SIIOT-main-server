@@ -443,8 +443,8 @@ class ProductViewSet(mixins.CreateModelMixin,
                 like.is_liked = False
             else:
                 like.is_liked = True
+                ProductLikeNotice(product=product, list_user=[product.seller], _from=user.id).send()
             like.save()
-        ProductLikeNotice(product=product, list_user=[user]).send()
         return Response(status=status.HTTP_206_PARTIAL_CONTENT)
 
     @action(methods=['get'], detail=False, permission_classes=[IsAuthenticated, ])

@@ -179,7 +179,7 @@ class UserInfoSerializer(serializers.ModelSerializer):
 
 
 class GCMCreateSerializer(serializers.ModelSerializer):
-    user = serializers.HiddenField(default=serializers.CurrentUserDefault)
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
     cloud_message_type = serializers.CharField(default='FCM')
 
     class Meta:

@@ -9,6 +9,7 @@ def get_choices():
 
 
 class Notification(models.Model):
+    _from = models.PositiveIntegerField(null=True, blank=True, help_text='보내는 사람의 id 입니다.')
     target = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, help_text="대상을 의미합니다.",
                                related_name='notifications', on_delete=models.CASCADE)
     action = models.IntegerField(choices=get_choices(), db_index=True,

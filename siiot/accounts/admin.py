@@ -7,6 +7,7 @@ from custom_manage.sites import superadmin_panel, staff_panel
 from custom_manage.tools import superadmin_register
 from .models import User, PhoneConfirm, Profile
 
+from push_notifications.models import GCMDevice
 
 class UserSuperadminForm(forms.ModelForm):
     user_permissions = forms.ModelMultipleChoiceField(
@@ -72,8 +73,13 @@ class LastNicknameAdmin(admin.ModelAdmin):
     list_display = ['last_nickname', 'is_active', 'created_at']
 
 
+class GCMDeviceAdmin(admin.ModelAdmin):
+    list_display = ['registration_id', 'user']
+
+
 staff_panel.register(User, UserStaffadmin)
 staff_panel.register(PhoneConfirm, PhoneConfirmAdmin)
 staff_panel.register(Profile, ProfileAdmin)
 staff_panel.register(FirstNickName, FirstNicknameAdmin)
 staff_panel.register(LastNickName, LastNicknameAdmin)
+staff_panel.register(GCMDevice, GCMDeviceAdmin)

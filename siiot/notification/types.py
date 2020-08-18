@@ -59,9 +59,12 @@ class BaseNotificationType(object):
     def target(self):
         return None
 
+    def _from(self):
+        return None
+
     def get_notification(self):
         from notification.models import Notification
-        noti = Notification.objects.create(
+        noti, _ = Notification.objects.get_or_create(
             action=self.action,
             target=self.target(),
             title=self.title(),
@@ -69,7 +72,8 @@ class BaseNotificationType(object):
             image=self.image(),
             icon=self.icon(),
             big_image=self.big_image(),
-            link=self.link()
+            link=self.link(),
+            _from=self._from
         )
         return noti
 
@@ -84,8 +88,9 @@ class ProductLikeNotice(BaseNotificationType):
     is_readable = True
     is_notifiable = True
 
-    def __init__(self, product, list_user):
+    def __init__(self, product, list_user, _from):
         self.product = product
+        self._from = _from
         super(ProductLikeNotice, self).__init__(list_user)
 
     def title(self):
@@ -94,16 +99,20 @@ class ProductLikeNotice(BaseNotificationType):
     def content(self):
         return "{} 상품에 찜을 눌렀습니다.".format(self.product.name)
 
-    # TODO : siiot icon
     def image(self):
         return ""
 
-    # TODO : Client Deep Link Format
+    def icon(self):
+        return "https://siiot-media-storage.s3.ap-northeast-2.amazonaws.com/%EC%95%8C%EB%A6%BC_2.png"
+
     def link(self):
-        return "siiot://product/{}/detail/".format(self.product.id)
+        return "sii-ot://detail_owner/{}/".format(self.product.id)
 
     def target(self):
-        return self.list_user[0].id
+        return self.list_user[0]
+
+    def _from(self):
+        return self._from
 
 
 @NotificationType
@@ -128,8 +137,11 @@ class UnreadMessageNotice(BaseNotificationType):
     def link(self):
         return ""
 
+    def icon(self):
+        return "https://siiot-media-storage.s3.ap-northeast-2.amazonaws.com/%EC%95%8C%EB%A6%BC_2.png"
+
     def target(self):
-        return self.list_user[0].id
+        return self.list_user[0]
 
 
 @NotificationType
@@ -152,10 +164,13 @@ class CheckSellConfirmNotice(BaseNotificationType):
         return ""
 
     def link(self):
-        return ""
+        return "sii-ot://deal_sale_detail/{}/".format(self.transaction.id)
+
+    def icon(self):
+        return "https://siiot-media-storage.s3.ap-northeast-2.amazonaws.com/%EC%95%8C%EB%A6%BC_2.png"
 
     def target(self):
-        return self.list_user[0].id
+        return self.list_user[0]
 
 
 @NotificationType
@@ -178,10 +193,13 @@ class SellerConfirmNotice(BaseNotificationType):
         return ""
 
     def link(self):
-        return ""
+        return "sii-ot://deal_purchased_detail/{}/".format(self.transaction.id)
+
+    def icon(self):
+        return "https://siiot-media-storage.s3.ap-northeast-2.amazonaws.com/%EC%95%8C%EB%A6%BC_2.png"
 
     def target(self):
-        return self.list_user[0].id
+        return self.list_user[0]
 
 
 @NotificationType
@@ -204,10 +222,13 @@ class SellerRejectNotice(BaseNotificationType):
         return ""
 
     def link(self):
-        return ""
+        return "sii-ot://deal_purchased_detail/{}/".format(self.transaction.id)
+
+    def icon(self):
+        return "https://siiot-media-storage.s3.ap-northeast-2.amazonaws.com/%EC%95%8C%EB%A6%BC_2.png"
 
     def target(self):
-        return self.list_user[0].id
+        return self.list_user[0]
 
 
 @NotificationType
@@ -230,10 +251,13 @@ class DeliverNumNotice(BaseNotificationType):
         return ""
 
     def link(self):
-        return ""
+        return "sii-ot://deal_purchased_detail/{}/".format(self.transaction.id)
+
+    def icon(self):
+        return "https://siiot-media-storage.s3.ap-northeast-2.amazonaws.com/%EC%95%8C%EB%A6%BC_2.png"
 
     def target(self):
-        return self.list_user[0].id
+        return self.list_user[0]
 
 
 @NotificationType
@@ -250,16 +274,19 @@ class CheckBuyerConfirmNotice(BaseNotificationType):
         return "check_buyerconfirm"
 
     def content(self):
-        return "{} 상품이 도착하였다면 구매확정버튼을 눌러주시고, 아니라면 시옷 고객센터에 문의해주세!".format(self.transaction.deal.trades.first().product.name)
+        return "{} 상품이 도착하였다면 구매확정버튼을 눌러주시고, 아니라면 시옷 고객센터에 문의해주세요!".format(self.transaction.deal.trades.first().product.name)
 
     def image(self):
         return ""
 
     def link(self):
-        return ""
+        return "sii-ot://deal_purchased_detail/{}/".format(self.transaction.id)
+
+    def icon(self):
+        return "https://siiot-media-storage.s3.ap-northeast-2.amazonaws.com/%EC%95%8C%EB%A6%BC_2.png"
 
     def target(self):
-        return self.list_user[0].id
+        return self.list_user[0]
 
 
 @NotificationType
@@ -282,10 +309,13 @@ class BuyerConfirmNotice(BaseNotificationType):
         return ""
 
     def link(self):
-        return ""
+        return "sii-ot://deal_sale_detail/{}/".format(self.transaction.id)
+
+    def icon(self):
+        return "https://siiot-media-storage.s3.ap-northeast-2.amazonaws.com/%EC%95%8C%EB%A6%BC_2.png"
 
     def target(self):
-        return self.list_user[0].id
+        return self.list_user[0]
 
 
 @NotificationType
@@ -308,10 +338,13 @@ class SellerCancelNotice(BaseNotificationType):
         return ""
 
     def link(self):
-        return ""
+        return "sii-ot://deal_purchased_detail/{}/".format(self.transaction.id)
+
+    def icon(self):
+        return "https://siiot-media-storage.s3.ap-northeast-2.amazonaws.com/%EC%95%8C%EB%A6%BC_2.png"
 
     def target(self):
-        return self.list_user[0].id
+        return self.list_user[0]
 
 
 @NotificationType
@@ -334,7 +367,10 @@ class BuyerCancelNotice(BaseNotificationType):
         return ""
 
     def link(self):
-        return ""
+        return "sii-ot://deal_sale_detail/{}/".format(self.transaction.id)
+
+    def icon(self):
+        return "https://siiot-media-storage.s3.ap-northeast-2.amazonaws.com/%EC%95%8C%EB%A6%BC_2.png"
 
     def target(self):
-        return self.list_user[0].id
+        return self.list_user[0]

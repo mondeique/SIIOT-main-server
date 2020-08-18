@@ -279,7 +279,7 @@ CKEDITOR_CONFIGS = {
 
 ########## FCM DJANGO CONFIGURATION
 PUSH_NOTIFICATIONS_SETTINGS = {
-        "FCM_API_KEY": "[your api key]",
+        "FCM_API_KEY": load_credential("FCM_API_KEY"),
         "GCM_API_KEY": "[your api key]",
         "APNS_CERTIFICATE": "/path/to/your/certificate.pem",
         "APNS_TOPIC": "com.example.push_test",
