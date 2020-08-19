@@ -89,7 +89,7 @@ class ProductMainSerializer(serializers.ModelSerializer):
                   'shopping_mall',
                   'origin_price',
                   'condition',
-                  'receipt_certify',
+                  'receipt_certify'
                   ]
 
     @staticmethod

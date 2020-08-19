@@ -1,3 +1,4 @@
+from accounts.models import User
 
 action_types = []
 # use_action_types = []
@@ -94,10 +95,11 @@ class ProductLikeNotice(BaseNotificationType):
         super(ProductLikeNotice, self).__init__(list_user)
 
     def title(self):
-        return "product_like"
+        return "좋아요"
 
     def content(self):
-        return "{} 상품에 찜을 눌렀습니다.".format(self.product.name)
+        _from_nickname = User.objects.get(pk=self._from)
+        return "{}: {} 상품에 찜을 눌렀습니다.".format(_from_nickname, self.product.name)
 
     def image(self):
         return ""
@@ -126,7 +128,7 @@ class UnreadMessageNotice(BaseNotificationType):
         super(UnreadMessageNotice, self).__init__(list_user)
 
     def title(self):
-        return "unread_message"
+        return "읽지 않은 메세지"
 
     def content(self):
         return "{} 개의 읽지 않은 메세지가 있습니다.".format(self.unreadcount)
@@ -155,7 +157,7 @@ class CheckSellConfirmNotice(BaseNotificationType):
         super(CheckSellConfirmNotice, self).__init__(list_user)
 
     def title(self):
-        return "check_sellconfirm"
+        return "판매 승인/거절"
 
     def content(self):
         return "{} 상품이 결제되었습니다. 판매 승인 또는 거절을 눌러주세요!".format(self.transaction.deal.trades.first().product.name)
@@ -184,7 +186,7 @@ class SellerConfirmNotice(BaseNotificationType):
         super(SellerConfirmNotice, self).__init__(list_user)
 
     def title(self):
-        return "seller_confirm"
+        return "판매 승인"
 
     def content(self):
         return "결제한 {} 상품이 판매 승인 되었습니다!".format(self.transaction.deal.trades.first().product.name)
@@ -213,7 +215,7 @@ class SellerRejectNotice(BaseNotificationType):
         super(SellerRejectNotice, self).__init__(list_user)
 
     def title(self):
-        return "seller_reject"
+        return "판매 거절"
 
     def content(self):
         return "결제한 {} 상품이 판매 거절 되었습니다.".format(self.transaction.deal.trades.first().product.name)
@@ -242,7 +244,7 @@ class DeliverNumNotice(BaseNotificationType):
         super(DeliverNumNotice, self).__init__(list_user)
 
     def title(self):
-        return "seller_deliver"
+        return "배송 완료"
 
     def content(self):
         return "결제한 {} 상품의 운송장 번호가 입력되었습니다!".format(self.transaction.deal.trades.first().product.name)
@@ -271,7 +273,7 @@ class CheckBuyerConfirmNotice(BaseNotificationType):
         super(CheckBuyerConfirmNotice, self).__init__(list_user)
 
     def title(self):
-        return "check_buyerconfirm"
+        return "구매 확정"
 
     def content(self):
         return "{} 상품이 도착하였다면 구매확정버튼을 눌러주시고, 아니라면 시옷 고객센터에 문의해주세요!".format(self.transaction.deal.trades.first().product.name)
@@ -300,7 +302,7 @@ class BuyerConfirmNotice(BaseNotificationType):
         super(BuyerConfirmNotice, self).__init__(list_user)
 
     def title(self):
-        return "buyer_confirm"
+        return "구매 확정"
 
     def content(self):
         return "판매한 {} 상품이 구매자에게 잘 도착했습니다!".format(self.transaction.deal.trades.first().product.name)
@@ -329,7 +331,7 @@ class SellerCancelNotice(BaseNotificationType):
         super(SellerCancelNotice, self).__init__(list_user)
 
     def title(self):
-        return "seller_cancel"
+        return "거래 취소"
 
     def content(self):
         return "판매자가 {} 상품 거래를 취소했습니다.".format(self.transaction.deal.trades.first().product.name)
@@ -358,7 +360,7 @@ class BuyerCancelNotice(BaseNotificationType):
         super(BuyerCancelNotice, self).__init__(list_user)
 
     def title(self):
-        return "buyer_cancel"
+        return "거래 취소"
 
     def content(self):
         return "구매자가 {} 상품 거래를 취소했습니다.".format(self.transaction.deal.trades.first().product.name)

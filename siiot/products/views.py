@@ -38,6 +38,8 @@ from core.pagination import SiiotPagination
 from user_activity.models import RecentlyViewedProduct, RecentlySearchedKeyword
 from notification.types import *
 
+from notification.models import NotificationUserLog
+
 
 class ProductViewSet(mixins.CreateModelMixin,
                      mixins.RetrieveModelMixin,
@@ -869,6 +871,14 @@ class MainViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
         qs = MainBanner.objects.filter(is_active=True).order_by('order')
         serializer = BannerSerializer(qs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(methods=['get'], detail=False)
+    def noti(self, request, *args, **kwargs):
+        user = request.user
+        qs = NotificationUserLog.objects.filter(notification__target=user)
+        if qs.filter(read_at__isnull=True).exists():
+            return Response({"code": 1}, status=status.HTTP_200_OK)
+        return Response({"code": 0}, status=status.HTTP_200_OK)
 
     @action(methods=['get'], detail=False)
     def filter(self, request, *args, **kwargs):

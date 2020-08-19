@@ -8,9 +8,11 @@ from notification.serializers import NotificationListSerializer
 
 from core.pagination import SiiotPagination
 
+from datetime import datetime
+
 
 class NotificationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
-    queryset = NotificationUserLog.objects.all()
+    queryset = NotificationUserLog.objects.all().order_by('-created_at')
     permission_classes = [IsAuthenticated]
     serializer_class = NotificationListSerializer
 
@@ -23,10 +25,9 @@ class NotificationViewSet(viewsets.GenericViewSet, mixins.ListModelMixin):
         paginator = SiiotPagination()
         user = request.user
         queryset = self.get_queryset().filter(notification__target=user)
-        like_queryset = queryset.filter(notification__action=101)
-        # like_queryset.
-        other_queryset = queryset.exclude(notification__action=101)
-
+        # like_queryset = queryset.filter(notification__action=101)
+        # other_queryset = queryset.exclude(notification__action=101)
+        queryset.update(read_at=datetime.now())
         page = paginator.paginate_queryset(queryset, request)
         serializer = self.get_serializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
