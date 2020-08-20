@@ -45,7 +45,7 @@ class Payment(models.Model):
     remain_tax_free = models.IntegerField(verbose_name='남은면세금액',null=True)
     cancelled_price = models.IntegerField(verbose_name='취소금액', null=True)
     cancelled_tax_free = models.IntegerField(verbose_name='취소면세금액', null=True)
-    pg = models.TextField(default='payapp', verbose_name='pg사')
+    pg = models.TextField(default='inicis', verbose_name='pg사')
     method = models.TextField(verbose_name='결제수단')
     payment_data = models.TextField(verbose_name='raw데이터')
     requested_at = models.DateTimeField(blank=True, null=True)

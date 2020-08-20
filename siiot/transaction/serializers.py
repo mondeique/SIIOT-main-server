@@ -78,9 +78,14 @@ class SimpleTransactionAddressSerializer(serializers.ModelSerializer):
 
 
 class SimpleTransactionTransportSerializer(serializers.ModelSerializer):
+    code = serializers.SerializerMethodField()
+
     class Meta:
         model = Delivery
         fields = ['code', 'number']
+
+    def get_code(self, obj):
+        return obj.code.name
 
 
 class TransactionDetailSerializer(serializers.ModelSerializer):  # 공용

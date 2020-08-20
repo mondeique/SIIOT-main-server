@@ -61,7 +61,7 @@ class BaseNotificationType(object):
         return None
 
     def _from(self):
-        return None
+        return ""
 
     def get_notification(self):
         from notification.models import Notification
@@ -152,8 +152,9 @@ class CheckSellConfirmNotice(BaseNotificationType):
     is_readable = True
     is_notifiable = True
 
-    def __init__(self, transaction, list_user):
+    def __init__(self, transaction, list_user, _from):
         self.transaction = transaction
+        self._from = _from
         super(CheckSellConfirmNotice, self).__init__(list_user)
 
     def title(self):
@@ -174,6 +175,9 @@ class CheckSellConfirmNotice(BaseNotificationType):
     def target(self):
         return self.list_user[0]
 
+    def _from(self):
+        return self._from
+
 
 @NotificationType
 class SellerConfirmNotice(BaseNotificationType):
@@ -181,8 +185,9 @@ class SellerConfirmNotice(BaseNotificationType):
     is_readable = True
     is_notifiable = True
 
-    def __init__(self, transaction, list_user):
+    def __init__(self, transaction, list_user, _from):
         self.transaction = transaction
+        self._from = _from
         super(SellerConfirmNotice, self).__init__(list_user)
 
     def title(self):
@@ -203,6 +208,9 @@ class SellerConfirmNotice(BaseNotificationType):
     def target(self):
         return self.list_user[0]
 
+    def _from(self):
+        return self._from
+
 
 @NotificationType
 class SellerRejectNotice(BaseNotificationType):
@@ -210,8 +218,9 @@ class SellerRejectNotice(BaseNotificationType):
     is_readable = True
     is_notifiable = True
 
-    def __init__(self, transaction, list_user):
+    def __init__(self, transaction, list_user, _from):
         self.transaction = transaction
+        self._from = _from
         super(SellerRejectNotice, self).__init__(list_user)
 
     def title(self):
@@ -232,6 +241,9 @@ class SellerRejectNotice(BaseNotificationType):
     def target(self):
         return self.list_user[0]
 
+    def _from(self):
+        return self._from
+
 
 @NotificationType
 class DeliverNumNotice(BaseNotificationType):
@@ -239,8 +251,9 @@ class DeliverNumNotice(BaseNotificationType):
     is_readable = True
     is_notifiable = True
 
-    def __init__(self, transaction, list_user):
+    def __init__(self, transaction, list_user, _from):
         self.transaction = transaction
+        self._from = _from
         super(DeliverNumNotice, self).__init__(list_user)
 
     def title(self):
@@ -261,6 +274,9 @@ class DeliverNumNotice(BaseNotificationType):
     def target(self):
         return self.list_user[0]
 
+    def _from(self):
+        return self._from
+
 
 @NotificationType
 class CheckBuyerConfirmNotice(BaseNotificationType):
@@ -268,8 +284,9 @@ class CheckBuyerConfirmNotice(BaseNotificationType):
     is_readable = True
     is_notifiable = True
 
-    def __init__(self, transaction, list_user):
+    def __init__(self, transaction, list_user, _from):
         self.transaction = transaction
+        self._from = _from
         super(CheckBuyerConfirmNotice, self).__init__(list_user)
 
     def title(self):
@@ -290,6 +307,9 @@ class CheckBuyerConfirmNotice(BaseNotificationType):
     def target(self):
         return self.list_user[0]
 
+    def _from(self):
+        return self._from
+
 
 @NotificationType
 class BuyerConfirmNotice(BaseNotificationType):
@@ -297,8 +317,9 @@ class BuyerConfirmNotice(BaseNotificationType):
     is_readable = True
     is_notifiable = True
 
-    def __init__(self, transaction, list_user):
+    def __init__(self, transaction, list_user, _from):
         self.transaction = transaction
+        self._from = _from
         super(BuyerConfirmNotice, self).__init__(list_user)
 
     def title(self):
@@ -319,6 +340,9 @@ class BuyerConfirmNotice(BaseNotificationType):
     def target(self):
         return self.list_user[0]
 
+    def _from(self):
+        return self._from
+
 
 @NotificationType
 class SellerCancelNotice(BaseNotificationType):
@@ -326,8 +350,9 @@ class SellerCancelNotice(BaseNotificationType):
     is_readable = True
     is_notifiable = True
 
-    def __init__(self, transaction, list_user):
+    def __init__(self, transaction, list_user, _from):
         self.transaction = transaction
+        self._from = _from
         super(SellerCancelNotice, self).__init__(list_user)
 
     def title(self):
@@ -348,6 +373,9 @@ class SellerCancelNotice(BaseNotificationType):
     def target(self):
         return self.list_user[0]
 
+    def _from(self):
+        return self._from
+
 
 @NotificationType
 class BuyerCancelNotice(BaseNotificationType):
@@ -355,8 +383,9 @@ class BuyerCancelNotice(BaseNotificationType):
     is_readable = True
     is_notifiable = True
 
-    def __init__(self, transaction, list_user):
+    def __init__(self, transaction, list_user, _from):
         self.transaction = transaction
+        self._from = _from
         super(BuyerCancelNotice, self).__init__(list_user)
 
     def title(self):
@@ -376,3 +405,6 @@ class BuyerCancelNotice(BaseNotificationType):
 
     def target(self):
         return self.list_user[0]
+
+    def _from(self):
+        return self._from

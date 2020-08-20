@@ -440,12 +440,12 @@ class ProductViewSet(mixins.CreateModelMixin,
         except self.get_object().DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
         like, tf = ProductLike.objects.get_or_create(user=user, product=product)
+        ProductLikeNotice(product=product, list_user=[product.seller], _from=user.id).send()
         if not tf:
             if like.is_liked:
                 like.is_liked = False
             else:
                 like.is_liked = True
-                ProductLikeNotice(product=product, list_user=[product.seller], _from=user.id).send()
             like.save()
         return Response(status=status.HTTP_206_PARTIAL_CONTENT)
 

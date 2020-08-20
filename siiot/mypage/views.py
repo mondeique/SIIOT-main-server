@@ -226,8 +226,9 @@ class TransactionHistoryViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMix
         queryset = self.get_queryset()\
             .filter(deal__buyer=user)\
             .exclude(status__in=[1,2,3,4])\
-            .filter(Q(seller_accepted=False)|
-                    Q(seller_cancel=True)|
+            .filter(Q(seller_accepted=False) |
+                    Q(confirm_transaction=True) |
+                    Q(seller_cancel=True) |
                     Q(buyer_cancel=True))\
             .order_by('-created_at')
 

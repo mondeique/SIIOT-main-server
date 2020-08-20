@@ -148,7 +148,7 @@ class TradeViewSet(viewsets.GenericViewSet, mixins.DestroyModelMixin):
                          'status':trade_data['status']},
              "payinfo": {'total_product_price':trade_data['product']['price'],
                          'delivery_charge':trade_data['payinfo']['general'],
-                         'total_price': trade_data['product']['price']+trade_data['payinfo']['general']},
+                         'total': trade_data['product']['price']+trade_data['payinfo']['general']},
              "user_info": user_info,
              "address": addr}
             , status=status.HTTP_200_OK)
@@ -339,14 +339,15 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
 
                     for deal in payment.deal_set.all():
                         # 판매 승인 모델 생성 : 각 상품 별로 판매 승인이 이루어집니다.
-                        transaction, _ = Transaction.objects.create(deal=deal, due_date=datetime.now()+timedelta(hours=12))
+                        transaction = Transaction.objects.create(deal=deal, due_date=datetime.now()+timedelta(hours=12))
                         chatroom, _ = ChatRoom.objects.get_or_create(seller=deal.seller, buyer=deal.buyer, deal=deal,
                                                        product=deal.trades.first().product)
                         ChatMessage.objects.create(message_type=1, room=chatroom, text="결제가 완료되었어요",
                                                    owner=deal.buyer)
                         ChatMessage.objects.create(message_type=1, room=chatroom, text="마이페이지에서 승인 / 거절을 눌러주세요",
                                                    owner=deal.buyer)
-                        CheckSellConfirmNotice(transaction=transaction, list_user=[request.user]).send()
+                        CheckSellConfirmNotice(transaction=transaction, list_user=[deal.seller],
+                                               _from=deal.buyer.id).send()
                     # reference = UserActivityReference.objects.create(deal=deal)
                     # activity log 생성 : seller
                     # UserActivityLog.objects.create(user=deal.seller, status=200, reference=reference)

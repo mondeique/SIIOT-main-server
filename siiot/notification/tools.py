@@ -27,7 +27,7 @@ def _push_android(list_user, notification):
     if serializer_data:
         from push_notifications.models import GCMDevice
         device = GCMDevice.objects.filter(user=list_user[0])
-        device.send_message(notification.content, extra={"title": notification.title, "icon": notification.icon})
+        device.send_message(notification.content, extra={"title": notification.title, "icon": "ic_notification_icon"})
     # if serializer_data:
         # for sliced_endpoints in batch(endpoints, 100):
         #     data = {

@@ -13,8 +13,10 @@ class DeliveryStaffAdmin(admin.ModelAdmin):
     def address_info(self, obj):
         return obj.address.address
 
+
 class DeliveryCodeStaffAdmin(admin.ModelAdmin):
     list_display = ['code', 'name', 'order', 'created_at']
+
 
 staff_panel.register(Transaction, TransactionStaffAdmin)
 staff_panel.register(Delivery, DeliveryStaffAdmin)
