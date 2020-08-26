@@ -422,7 +422,6 @@ class ProductViewSet(mixins.CreateModelMixin,
         serializer = self.get_serializer(questions, many=True)
         return Response(serializer.data)
 
-
     @action(methods=['put'], detail=True, permission_classes=[IsAuthenticated, ])
     def like(self, request, *args, **kwargs):
         """

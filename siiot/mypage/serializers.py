@@ -1,5 +1,6 @@
 import datetime
 
+from django.db.models import Avg
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
@@ -55,8 +56,11 @@ class SimpleUserInfoSerializer(serializers.ModelSerializer):
         return None
 
     def get_star_rating(self, obj):
-        # todo: review 만들고 rating 계산
-        return 5.0
+        if obj.received_reviews.first():
+            score = obj.received_reviews.all().values('satisfaction'). \
+                annotate(score=Avg('satisfaction')).values('score')[0]['score']
+            return score
+        return 0.0
 
 
 class MypageSerializer(serializers.ModelSerializer):

@@ -398,7 +398,6 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         """
         결제 진행 취소 시 client 에서 호출하는 api 입니다.
         상품 상태를 초기화 합니다.
-        # TODO : check 프로세스
         api: POST api/v1/payment/cancel/
 
         :param request: order_id(payment id와 동일)
@@ -413,7 +412,6 @@ class PaymentViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
         """
         결제 중 에러 발생 시 client 에서 호출하는 api 입니다.
         상품 상태를 초기화 합니다.
-        # TODO : check 프로세스
 
         api: POST api/v1/payment/error/
 

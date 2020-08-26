@@ -94,7 +94,6 @@ class ProductMainSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_receipt_certify(obj):
-        # todo : 구매내역 인증 시 True
         if obj.receipt:
             return True
         return False
