@@ -2,125 +2,164 @@
 {% load static %}
 <html lang="en">
 <head>
-    <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-    })(window,document,'script','dataLayer','GTM-5NHRV96');</script>
-    <!-- End Google Tag Manager -->
-{#    <!-- Global site tag (gtag.js) - Google Analytics -->#}
-{#    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-172867123-1"></script>#}
-{#    <script>#}
-{#      window.dataLayer = window.dataLayer || [];#}
-{#      function gtag(){dataLayer.push(arguments);}#}
-{#      gtag('js', new Date());#}
-{#      gtag('config', 'UA-172867123-1');#}
-{#    </script>#}
-    <!-- Global site tag (gtag.js) - Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-172867123-2"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'UA-172867123-2');
-    </script>
-
-  <link rel="stylesheet" type="text/css" href="{% static 'css/landing.css' %}">
-{#    <link rel="stylesheet" type="text/css" href="/../../statics/css/landing.css">#}
-{#    <link rel="stylesheet" type="text/css" href="{% static 'css/sns.css' %}">#}
-{#    <link rel="shortcut icon" type="image/x-icon" href="https://pepup-server-storages.s3.ap-northeast-2.amazonaws.com/static/img/favicon-96x96.png"/>#}
   <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <script type='text/javascript' src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
   <title>SIIOT</title>
-
   <!--favicon-->
   <!--bootstrap-->
-
+  <style>
+      #wrap {width: 100%;}
+      footer { width : 100%}
+      section { width: 100%;}
+      img { width : 100%;}
+      .visible-mobile{
+        display: none;
+      }
+        /* font */
+        @font-face{
+            font-family : noto-bold;
+            src :  url("{% static 'fonts/FontAwesome.otf' %}");
+        }
+        @font-face{
+          font-family : noto-regular;
+          src : url("{% static 'fonts/FontAwesome.otf' %}")
+        }
+      p {
+        font-family: noto-bold;
+        color: black;
+        size: 20px;
+        text-align: center;
+        vertical-align: middle;
+      }
+      #goSheetBtn{
+          position : fixed;
+          bottom : 0px;
+          width:100%;
+          height: 100px;
+          background: #443021;
+          font-size: 26px;
+          color: white;
+          line-height: 80px;
+          text-align: center;
+          font-family: noto-bold;
+      }
+      #goSheetBtn span{
+        display: inline-block;
+        vertical-align: middle;
+      }
+      .container{
+        height:150px; background:#ebebf6;
+      }
+      footer span{
+        font-size:16px; font-family: noto-regular;
+      }
+      .footer-section{
+        float: left; margin-top: 40px; margin-left: 12.5%; color: #6B6A6E;
+        margin-bottom: 120px;
+      }
+      .footer-first{
+        float: left; margin-top: 40px; margin-left: 5%; color: #6B6A6E;
+      }
+      @media (min-width:1200px){
+        html, body {
+          height: 100%;
+        }
+      html {
+        display: table;
+        margin: auto;
+      }
+      body {
+        display: table-cell;
+        vertical-align: middle;
+      }
+          footer span{
+            font-size: 12px;
+          }
+          footer{
+            width: 960px;
+          }
+          section{
+            width : 960px;
+          }
+          #goSheetBtn{
+            width : 960px;
+          }
+          .footer-section{
+            font-size: 12px;
+          }
+      }
+      @media (max-width: 1200px){
+          .footer-section{
+        margin-bottom: 200px;
+      }
+        #goSheetBtn{
+          position : fixed;
+          bottom : 0px;
+          width:100%;
+          height: 180px;
+          background: #443021;
+          font-size: 52px;
+          color: white;
+          line-height: 160px;
+          text-align: center;
+          font-family: noto-bold;
+      }
+      .container{
+        height:200px; background:#ebebf6;
+      }
+        footer span{
+            font-size: 8px;
+          }
+          .footer-section{
+            font-size: 8px;
+            margin-top: 20px;
+            margin-left: 5%
+          }
+          .footer-first{
+            margin-top: 10px;
+          }
+          .visible-mobile {
+            display: inline;
+          }
+          .hidden-mobile {
+            display: none;
+          }
+      }
+  </style>
 </head>
 <body>
-    <!-- Google Tag Manager (noscript) -->
-    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-5NHRV96"
-    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-    <!-- End Google Tag Manager (noscript) -->
 <!--section-->
     <div id="wrap">
-{#        <header>#}
-{#            <img id = "homeBtn" src="https://pepup-storage.s3.ap-northeast-2.amazonaws.com/landing/homesmall.svg">#}
-{#            <div id="guideBtn">#}
-{#                SIIOT#}
-{#            </div>#}
-{#            <div id="sns">#}
-{#                <span class="snsimg kakao"><img src="https://pepup-storage.s3.ap-northeast-2.amazonaws.com/landing/kakaoImg.svg"/></span><span class = "snstext kakao"></span>#}
-{#                <span class="snsimg insta"><img src="https://pepup-storage.s3.ap-northeast-2.amazonaws.com/landing/instaImg.svg"/></span><span class = "snstext insta"></span>#}
-{#            </div>#}
-{#        </header>#}
-        <div class="wrapper" align="center">
-                <img src="https://siiot-server-storages.s3.ap-northeast-2.amazonaws.com/landing/%EB%9E%9C%EB%94%A9%ED%8E%98%EC%9D%B4%EC%A7%80IOS.jpg"
-                id="imagesource"/>
-        </div>
-{#        <div id="downloadBox" align="center">#}
-{#            <span class="download_link">#}
-{#                <img id="downloadBtn"#}
-{#                        src="https://siiot-server-storages.s3.ap-northeast-2.amazonaws.com/landing/%EC%9D%B8%EC%8A%A4%ED%83%80%EC%8A%A4%ED%86%A0%EB%A6%AC_%EA%B4%91%EA%B3%A0_%EB%B2%84%ED%8A%BC.jpg"#}
-{#                     />#}
-{#            </span>#}
-{#        </div>#}
+        <header>
+        </header>
+        <section>
+            <img src="https://siiot-server-storages.s3.ap-northeast-2.amazonaws.com/landing/MVP_%EC%9E%85%EA%B3%A0%EA%B2%B0%EC%A0%9C%EB%9E%9C%EB%94%A9%ED%8E%98%EC%9D%B4%EC%A7%80.jpg" class="visible-mobile"/>
+            <img src="https://siiot-server-storages.s3.ap-northeast-2.amazonaws.com/landing/MVP_%EC%9E%85%EA%B3%A0%EA%B2%B0%EC%A0%9C%EB%9E%9C%EB%94%A9%ED%8E%98%EC%9D%B4%EC%A7%80.jpg" class="hidden-mobile"/>
+            <div id = "goSheetBtn">
+              <span>원하는 옷 핏팅 신청하기</span>
+            </div>
+        </section>
     </div>
     <!--footer-->
-{#  <footer>#}
-{#        <div class="container">#}
-{#          <div class="footer-first">#}
-{#            <span>주식회사 몽데이크</span>#}
-{#            <br/>#}
-{#            <span>Copyright 2020 Mondeique. All rights reserved.</span>#}
-{#          </div>#}
-{#          <div class="footer-section">#}
-{#            <span style="font-family: noto-bold;">주소</span> 서울시 마포구 연남동 567-39번지 202호<br/>#}
-{#            <span style="font-family: noto-bold;">대표이사</span> 박준용, 이상우<br/>#}
-{#            <span style="font-family: noto-bold;">사업자등록번호</span> 789-81-01945<br/>#}
-{#            <span style="font-family: noto-bold;">이메일</span> support@mondeique.com#}
-{#          </div>#}
-{#        </div>#}
-{#  </footer>#}
+  <footer>
+        <div class="container">
+          <div class="footer-first">
+            <span style="font-size: 20px; font-family: noto-bold;">주식회사 몽데이크</span>
+            <br/>
+            <span>Copyright 2020 Mondeique. All rights reserved.</span>
+          </div>
+          <div class="footer-section">
+            <span style="font-family: noto-bold;">주소</span> 서울시 마포구 연희로 11 5층 S-541호<br/>
+            <span style="font-family: noto-bold;">대표</span> 박준용, 이상우<br/>
+            <span style="font-family: noto-bold;">사업자등록번호</span> 789-81-01945<br/>
+            <span style="font-family: noto-bold;">이메일</span> support@mondeique.com
+          </div>
+        </div>
+  </footer>
 </body>
-<script>
-  // $(document).ready(function(){
-  //   var width = (window.innerWidth > 0) ? window.innerWidth : screen.width;
-  //   if(width < 760){
-  //     $(".none-mobile").css("display", "none")
-  //     $(".mobile").css("display","inline")
-  //   }else{
-  //     $(".none-mobile").css("display", "inline")
-  //     $(".mobile").css("display","none")
-  //   }
-  // })
-  $("#guideBtn").hover(function(){
-    $("#guideBtn").css("background", "black").css("color","white");
-  }, function(){
-    $("#guideBtn").css("background", "white").css("color","black");
-  })
-  $("#homeBtn").click(function(){
-    window.location.href = "http://sii-ot.com/"
-  })
-    //sns link
-    {#$(".kakao").click(function () {#}
-    {#    window.location.href = "http://pf.kakao.com/_xbjYMxb/chat"#}
-    {#})#}
-    {#$(".insta").click(function () {#}
-    {#    window.location.href = "http://instagram.com/siiot.official"#}
-    {#})#}
-    // download link
-  $("#imagesource").click(function () {
-        {#window.location.href = "https://play.google.com/store/apps/details?id=com.mondeique.siiot"#}
-      window.alert("출시 준비중입니다.")
-      $.ajax({
-          url: "http://sii-ot.com/alert_slack/", // 클라이언트가 요청을 보낼 서버의 URL 주소
-          type: "GET"                         // 서버에서 보내줄 데이터의 타입
-        }).done(function(){
-            console.log("log success")
-        })
-  })
-</script>
+  <script>
+    $("#goSheetBtn").click(function(){
+      window.location.href = "https://forms.gle/aH28exNWM77SEd8p8"
+    })
+  </script>
 </html>

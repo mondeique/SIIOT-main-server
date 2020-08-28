@@ -7,10 +7,26 @@
   #imagesource{
     width : 100%
   }
+  #submitButton{
+    width : 100%;
+    position : fixed;
+    right: 0px;
+    left: 0px;
+    bottom: 0px;
+    height: 100px;
+  }
 }
 @media screen and (min-width: 768px) {
   #imagesource{
     width : 1000px
+  }
+  #submitButton{
+    width : 100%;
+    position : fixed;
+    right: 0px;
+    left: 0px;
+    bottom: 0px;
+    height: 100px;
   }
 }
 
