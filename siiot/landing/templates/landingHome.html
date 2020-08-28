@@ -108,10 +108,10 @@
         height:200px; background:#ebebf6;
       }
         footer span{
-            font-size: 8px;
+            font-size: 20px;
           }
           .footer-section{
-            font-size: 8px;
+            font-size: 20px;
             margin-top: 20px;
             margin-left: 5%
           }
@@ -159,7 +159,7 @@
 </body>
   <script>
     $("#goSheetBtn").click(function(){
-      window.location.href = "https://forms.gle/aH28exNWM77SEd8p8"
+        window.location.href = {% url 'landing:homefit_alert' %};
     })
   </script>
 </html>

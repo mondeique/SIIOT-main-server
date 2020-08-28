@@ -6,5 +6,6 @@ app_name = 'landing'
 
 urlpatterns = [
     path('', views.home, name='home'),
-    path('alert_slack/', views.alert_slack)
+    path('alert_slack/', views.alert_slack),
+    path('home_fit_alert_slack/', views.homefiting_alert_slack, name="homefit_alert")
 ]
