@@ -11,5 +11,5 @@ def alert_slack(request):
 
 
 def homefiting_alert_slack(request):
-    slack_message("누군가가 홈피팅 신청하기 버튼을 눌렀습니다!.")
-    return redirect('https://forms.gle/aH28exNWM77SEd8p8')
+    slack_message("누군가가 홈피팅 사이트로 접속했습니다.")
+    return redirect('http://www.siiot-fitting.store')
