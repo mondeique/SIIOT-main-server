@@ -11,5 +11,5 @@ def alert_slack(request):
 
 
 def homefiting_alert_slack(request):
-    slack_message("누군가가 홈피팅 사이트로 접속했습니다.")
-    return redirect('http://www.siiot-fitting.store')
+    slack_message("누군가가 홈피팅 카카오톡 링크로 접속했습니다.")
+    return redirect('http://pf.kakao.com/_xdxixcyxb/chat')
